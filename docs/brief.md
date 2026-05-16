@@ -31,7 +31,7 @@ That's what `poke` is.
 
 **Useful consequence — one-way outbound channels.** Because the URL carries the response surface with it, the agent only needs *outbound* access on the channel it used to reach the user. Email, SMS, push notifications, paging — none natively support structured replies, but all carry URLs. The poke surface IS the response channel.
 
-**Useful consequence — schema by construction.** The agent designs the affordances and their schemas in the same breath as the question. Submissions arrive in known shape; no parsing or extraction from prose. This is a quiet but large efficiency and correctness win versus inferring structure from a chat reply.
+**Useful consequence — schema by construction.** The agent designs the affordances and their schemas in the same breath as the question. Submissions arrive in known shape; no parsing or extraction from prose. This is a quiet but large efficiency and correctness win versus inferring structure from a chat reply. (Note: the *envelope* is always typed — known affordance IDs, named fields — but the *content* of free-text or file fields is still user-controlled. See Security considerations.)
 
 ## What poke is for — and is not for
 
@@ -154,10 +154,10 @@ The reference `examples/server.go` implements this wire in ~80 lines.
 
 The agent must autonomously drain. Mechanisms in the space:
 
-- **Monitor on background process stdout (Claude Code).** Spawn the server in background, Monitor its stdout for `SUBMIT` lines, react push-driven. Preferred for local use in CC — event-driven, no polling cost.
-- **ScheduleWakeup / /loop polling.** Timer-based. Use when stream-based mechanisms aren't available, or when polling cadence is naturally slow (async approval gates with minute-scale latency).
-- **Filesystem watch (fswatch / inotify).** Push-driven via the OS. Useful when the surface writes submissions to a file the agent watches.
-- **Push webhook into the agent.** For remote/channel-driven setups where the agent isn't local — the surface POSTs an event to a hook that wakes the agent via push notification, RemoteTrigger, or equivalent.
+- **Monitor on background process stdout (Claude Code primitive).** Spawn the server in background, Monitor its stdout for `SUBMIT` lines, react push-driven. Preferred for local use in CC — event-driven, no polling cost.
+- **ScheduleWakeup / /loop polling (Claude Code primitives).** Timer-based. Use when stream-based mechanisms aren't available, or when polling cadence is naturally slow (async approval gates with minute-scale latency).
+- **Filesystem watch (OS-level: fswatch / inotify).** Push-driven via the OS. Useful when the surface writes submissions to a file the agent watches.
+- **Push webhook into the agent (depends on environment).** For remote/channel-driven setups where the agent isn't local — the surface POSTs an event to a hook that wakes the agent. Currently limited primitive support in CC; named as the abstract shape for future or non-CC environments.
 
 The skill teaches the *space*; the agent picks based on environment and the latency requirements of the task. Non-prescriptive.
 
@@ -170,7 +170,7 @@ The skill teaches the *space*; the agent picks based on environment and the late
 3. **The pattern** → `references/pattern.md` — substrate-agnostic definition (the five points above).
 4. **The wire example** → `references/wire-example.md` — the HTTP+JSON walkthrough.
 5. **Lifecycle mechanisms** → `references/lifecycle.md` — the mechanism space and notes on picking.
-6. **Working with the user** — the collaborative norm below.
+6. **Working with the user** *(inline; no reference file)* — the collaborative norm below.
 7. **Reference example** → `examples/server.go` — pointer to the Go reference server.
 
 ## Working with the user
@@ -189,7 +189,7 @@ This changes as `poke` grows. Three threat shapes worth naming:
 
 - **Unstructured input** (free text, images, file uploads) is an injection vector — submissions arrive in known *shape* but the *content* of free fields is user-controlled. Agents must treat free-field content as untrusted before passing it back to an LLM.
 - **Hosted / public surfaces** introduce auth and link-lifecycle concerns (link expiration, one-time-use, magic-link / session, replay protection) that v0 does not address.
-- **Cross-tool replay.** A submission designed for one agent's intent map could be replayed against another if IDs collide. v0's per-session ID scope mitigates this; future hosted versions need to be careful.
+- **Cross-tool replay.** A submission designed for one agent's intent map could be replayed against another if IDs collide. v0's per-session ID scope mitigates this *assuming each session starts with a fresh state file*; future hosted versions need to be careful.
 
 The skill includes a one-paragraph caution in section 2. Substantive treatment — sanitization patterns, hosted auth, link lifecycle — is future work.
 
@@ -217,8 +217,7 @@ poke/
 ├── references/               # shipped: lazy-loaded sections
 │   ├── pattern.md
 │   ├── wire-example.md
-│   ├── lifecycle.md
-│   └── when-not-to-use.md
+│   └── lifecycle.md
 ├── examples/                 # shipped: reference code
 │   └── server.go
 ├── docs/                     # dev artifacts (not loaded by skill)
