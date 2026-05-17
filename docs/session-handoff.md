@@ -1,64 +1,64 @@
-# poke — Session Handoff (wrap-of-day, three agents in flight)
+# poke — Session Handoff (end of v0 + extensive dogfood)
 
-**Date:** 2026-05-16
+**Date:** 2026-05-17 (UTC)
 **Branch:** main
-**Status:** v0 shipped + dogfooded; three follow-up agents dispatched in worktrees while Andrew is away.
+**Status:** v0 shipped, three substrates landed (Go local, Python local, Cloudflare Worker hosted), five pokes dogfooded end-to-end (vibe-click, draw-canvas, design-iteration with escape hatch, settings-paste, hosted hi-from-cloudflare). Cloudflare worker is live; ten-plus follow-up tickets open. No work in flight at handoff.
 
-## Shipped this session
+## Substrate state
 
-- v0 (all 10 plan tasks closed + merged + verified end-to-end)
-- Dogfood across 4 surfaces (vibe-emoji-click, drawing canvas, settings-iso v2 with conflated buttons, settings-iso v3 with split buttons + escape hatch)
-- Three v0 dogfood findings closed + merged: `go run` orphan server (parent-death watchdog), smoke-test HTML plain-form bug (rewritten to fetch+JSON), stale-tab port-reuse hazard (Cache-Control: no-store)
-- bgIsolation harness relaxation landed via Andrew's one-paste shell command (effective on next Claude session start in this repo, not retroactively)
-- 3 memories captured covering affordance design + tracking rules
+- **`examples/server.go`** — Go stdlib reference. Includes parent-death watchdog, Cache-Control no-store, `--drain-mode={stdout,fs}` flag for fs-watch drain. 5 tests pass.
+- **`examples/server.py`** — Python stdlib reference mirroring the Go contract. 6 tests pass. Cross-impl smoke test confirmed byte-identical wire behavior.
+- **`examples/worker/`** — Cloudflare Worker + KV, TypeScript. Deployed live at `https://poke-example.andrew-cove-cloudflare.workers.dev`. Uses KV for per-session state, `/poll` endpoint for drain (no stdout in Worker land), two-layer CSRF (Origin + per-session token), ~128-bit unguessable session IDs as the access boundary. Multipart uploads are 501-stub (R2-backed multipart is a separately tracked v2 candidate).
 
-## In flight (3 bg agents dispatched)
+## Open backlog (no work in flight)
 
-1. **Docs bundle:** affordance-design SKILL.md addition (4 sub-principles: minimum effort, escape hatch, one-affordance-one-intent, honest confirmation messaging) + concrete prompt-injection examples in security.md. One agent doing all four ticket closes on a single branch, 4 commits.
-2. **Python reference implementation:** stdlib-only port of `examples/server.go` to `examples/server.py` plus `examples/test_server.py`. Validates the substrate-agnostic claim — if the references are right, an agent can port from docs alone.
-3. **Filesystem-watch drain example:** Either a `--drain-mode={stdout,fs}` flag on the existing server (shape A, recommended) or doc-only update (shape B), plus worked pseudocode in `references/lifecycle.md`.
+Triaged into "safe to attempt without Andrew" and "needs Andrew" buckets.
 
-## Next pass
+**Safe overnight** — no decisions required, root causes validated by dogfood:
 
-When the three completions arrive (orchestrator will get notifications), the work is:
-1. Rebase + ff-merge each branch in order of completion.
-2. Run gates after each (`gofmt -l .`, `go vet ./...`, `go test ./...`).
-3. Prune worktrees + branches.
-4. Update this handoff to reflect the new state.
+- **Worker bare-root 404.** `GET /` currently returns the literal string `ok`. Should 404. p2.
+- **Worker trailing-slash redirect.** `GET /<sid>` (no trailing slash) makes `./submit` resolve to `/submit` (root), 404. Either redirect to `/<sid>/` form or prescribe absolute-path fetches in hosted-example.md. **p1** — this is the bug that silently failed the first hi-from-cloudflare poke before the fix-validation succeeded.
+- **Example HTML must check `response.ok`.** Current pattern in worker README does `await fetch(...)` and unconditionally shows success. Companion to the "honest confirmation messages" affordance-design rule (which landed in SKILL.md §6 today). p2.
+- **Doc precision for non-Go implementers.** `references/wire-example.md` / `docs/plan.md` "Shared contracts" specify `RFC3339Nano` (Go-specific) for timestamps and don't address JSON field ordering. Both surfaced by the Python port. Should relax to "RFC3339-shaped, precision implementation-defined" and "field ordering is implementation-defined, parse by key." p2.
+- **Node reference implementation.** Sibling to the just-landed Python port. Stdlib over Express; mirror the Go/Python contracts. p2, looser scope than the others — agent may need to make framework choices (raw `http` vs Express vs Hono). If you want a clean small win overnight, instruct the orchestrator to skip Node.
 
-If any agent reports an issue rather than completion, halt per the orchestrate skill.
+**Needs Andrew** — skip overnight:
 
-## Open backlog (after the in-flight three land)
+- **R2-backed multipart for the Worker.** v2 candidate. Needs your call on R2 bucket setup, cost framing, possibly a binding choice. p3.
+- **Bundled `poke-serve` binary.** Release infrastructure (GoReleaser vs GitHub Action vs checked-in tarballs) is a preference call. p3, explicitly deferred.
 
-Still tracked, no work in flight:
+## Cloudflare deployment notes
 
-- **Cloudflare Worker + KV deployment** — most novel remaining candidate; forces the hosted-deployment-posture discussion out of theory. Needs Andrew (CF account, possibly a subdomain).
-- **Node / Deno / Rust reference implementations** — sibling to the in-flight Python work; under the alt-language-impls umbrella ticket. Filed as the umbrella stays open after Python lands.
-- **Bundled `poke-serve` binary** — the v1 ergonomic upgrade; tracked, deferred until real-signal demands it.
+- Live URL: `https://poke-example.andrew-cove-cloudflare.workers.dev`
+- KV namespace `POKE_STATE` (id `5f70241b834d4e789d5b9c1272bcc659`) holds session state.
+- Two test sessions in KV from today's dogfood (one click captured in each); fine to GC if you want them gone — `wrangler kv key delete ...`.
+- `PROVISION_TOKEN` was rotated several times today via `wrangler secret put`. Whatever's current is fine — only used to gate `/_provision`, not session serving.
 
-## What's left for other-project use of poke
+## bgIsolation harness setting
 
-Strictly speaking, nothing blocks it today. The skill is installed at `~/.claude/skills/poke` user-wide; any Claude session in any directory sees it in available-skills. The friction items (Go runtime requirement for the reference server, localhost-shaped conventions) are real but small — agents can re-implement in the project's stack from the references, which is exactly what the in-flight Python work is validating.
+`/Users/andrewcove/Workspace/poke/.claude/settings.json` now has `{"worktree": {"bgIsolation": "none"}}`. The setting takes effect on the **next** Claude session start in this repo — so the overnight `/orchestrate` session will be able to use `Edit`/`Write` on main-checkout files directly, no Bash heredoc workarounds needed.
 
-The smoothing items are tracked: alt-language refs (Python in flight; Node/Deno/Rust still queued), bundled binary (deferred), Cloudflare for hosted shapes.
+## How to kick off overnight
 
-## Agent bookkeeping (ticket ids for orchestrator grep)
+Open a fresh Claude Code session in `~/Workspace/poke`, type `/orchestrate`. The orchestrator will:
 
-Doc-bundle agent claims: `act-a637`, `act-78c1`, `act-ed80`, `act-2781` (close in that order).
-Python impl agent claims: `act-7bd1`.
-Fs-watch agent claims: `act-4f2b`.
+1. Read this handoff and CLAUDE.md.
+2. Run `act ready` to find unblocked work.
+3. Dispatch what fits in parallel (the worker bug fixes likely bundle into one agent on a single branch; the Python-port-surfaced doc-precision is independent; Node port is independent).
+4. Merge as agents complete. Halt and surface if any rebase hits conflicts.
+5. Stop after one pass. Run `/orchestrate` again in the morning for any further passes.
 
-Still-open after in-flight completes (in act): `act-e719` (alt-lang umbrella), `act-84a8` (Cloudflare), `act-db17` (bundled binary).
+If you want the conservative version, tell it explicitly: "skip the Node port; do the three worker fixes and the doc-precision relaxation only." If you want it to figure out scope, just `/orchestrate`.
 
 ## Halt conditions (orchestrate skill)
 
 - Bg agent reports an issue → halt and surface.
-- Rebase hits conflicts during merge-back → halt and surface.
-- Worktree locked by live process → don't force; surface.
-- Subagent surfaces an unresolved question via bg-task → respond, agent resumes.
+- Rebase hits conflicts → halt and surface (overlapping work).
+- Worktree locked by live process → surface, don't force.
+- Agent surfaces a question via bg-task → it'll wait; you respond in the morning.
 
-## Reading order for the next session
+## Reading order for the morning
 
-1. `CLAUDE.md` (project) and the user's global CLAUDE.md — load-bearing principles. Note the new "don't cite ticket IDs to Andrew" rule landed mid-pass on 2026-05-16.
-2. This file.
-3. `docs/brief.md` / `docs/plan.md` only if a specific question arises about Cloudflare or v1 scope.
+1. This file (just an overview).
+2. `git log` since the timestamp of this commit — see what overnight landed.
+3. `act list | grep -v closed` — open backlog after overnight.
