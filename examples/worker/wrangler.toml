@@ -1,0 +1,22 @@
+# Cloudflare Worker reference implementation of the poke wire (hosted
+# substrate). See examples/worker/README.md for deploy instructions and
+# references/hosted-example.md for the wire walkthrough.
+
+name = "poke-example"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+
+# Workers default to *.workers.dev for v0 hosted-substrate usage. Custom
+# domains are explicitly out of scope here — the unguessable session ID in
+# the URL is the access boundary (see references/security.md).
+workers_dev = true
+
+# Per-session state lives in KV. Keys:
+#   session:<id>:state -> JSON shape mirrors the local wire's state file
+#     ({session_id, affordances, submissions, created_at, html, csrf_token}).
+#
+# The id is provisioned via `wrangler kv namespace create POKE_STATE` and
+# pasted below. The placeholder ID is replaced before the first deploy.
+[[kv_namespaces]]
+binding = "POKE_STATE"
+id = "5f70241b834d4e789d5b9c1272bcc659"

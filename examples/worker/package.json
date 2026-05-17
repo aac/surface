@@ -1,0 +1,16 @@
+{
+  "name": "poke-worker-example",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cloudflare Worker + KV reference implementation of the poke wire (hosted substrate).",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240712.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.60.0"
+  }
+}
