@@ -82,9 +82,10 @@ surfaces should use `fetch` with a JSON body for typed submissions, or
 `FormData` for multipart uploads.
 
 Unsupported content types (including `application/x-www-form-urlencoded`)
-return `415 Unsupported Media Type` with a terse text body. This is pinned —
-agents tailing client errors and cross-implementation tooling benefit from
-the same status arriving regardless of which reference server is running.
+should be rejected with a 4xx and a terse text body. The specific status
+code is implementation-defined; the existing reference servers (Go, Node,
+Rust) independently picked `415 Unsupported Media Type`, which is a
+reasonable default if you have no other constraint.
 
 ### `application/json` — typed submissions
 
@@ -133,16 +134,16 @@ actual response.
 
 ### `multipart/form-data` — file uploads
 
-**Body-size cap.** Implementations should bound multipart upload size to
-protect against runaway memory use or accidental huge uploads. The Node
-reference enforces a hard 32 MiB body cap and returns `413 Payload Too
-Large` on over-cap; the Go reference uses 32 MiB as the in-memory ceiling
-before spilling to disk (no hard total-size cap). Both shapes protect
-memory; the choice between "reject large uploads outright" and "stream
-large uploads to disk" is implementer's call given the task. Ephemeral
-poke surfaces rarely need to accept more than tens of MiB. Whatever the
-mechanism, returning `413` on a hard-cap rejection is the expected
-status.
+**Body-size handling.** Memory protection on multipart uploads is
+operational — same class of decision as state file lifecycle, port choice,
+and server teardown (see `pattern.md` §"Beyond the pattern"). Whether to
+hard-cap total body size, spill to disk above some in-memory ceiling, or
+do something else is the implementer's call. For orientation: the Node
+reference hard-caps at 32 MiB and returns `413 Payload Too Large` on
+over-cap; the Go reference uses 32 MiB as the in-memory ceiling before
+spilling to disk (no hard total cap); the Rust reference hard-caps at
+32 MiB and returns `413`. All valid shapes. Ephemeral poke surfaces
+rarely need more than tens of MiB; pick what fits the deployment.
 
 Body carries:
 
