@@ -19,6 +19,8 @@ The concerns that matter scale with how far the surface travels from the agent.
 
 **Localhost (v0 default).** The reference server binds to `127.0.0.1`. Only processes on the same machine can reach it. The risk surface is whatever else is running on that machine. For solo local use, this is comfortable.
 
+Whether the server exposes a `--bind` flag (or equivalent knob) to override the loopback default is implementer's call — address binding falls under the operational concerns the pattern leaves to the agent (see `pattern.md` §"Beyond the pattern"). The Go and Node references expose `--bind 127.0.0.1` as a configurable flag, so a deliberate LAN deployment doesn't require a fork; the Rust reference hardcodes loopback as the safer default. Both shapes are valid. If an implementation exposes the knob, the default must remain loopback so the safe posture is what an agent gets when it doesn't think about it; if it hardcodes loopback, an agent that genuinely needs LAN/tunneled reach is expected to build a different wire rather than patch the reference.
+
 **LAN, tunnel, or hosted.** Anything beyond loopback widens the audience. Things worth thinking through:
 
 - **Unguessable URLs.** If the URL itself is the access control, the session ID (or whatever path component scopes the poke) needs enough entropy that an attacker can't enumerate or guess it. The agent picks the format; the threshold to consider is "would a directory scan find this?"
