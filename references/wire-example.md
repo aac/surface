@@ -79,6 +79,11 @@ Body:
 { "id": "<affordance-id>", "payload": <json-or-null> }
 ```
 
+A missing or `undefined` `payload` field normalizes to JSON `null` — both on
+the appended state entry and on the emitted SUBMIT line. The wire's SUBMIT
+contract demands a JSON-parseable `<payload-json>` token; a literal `null`
+keeps that invariant when the client didn't send a payload.
+
 The server:
 
 1. Decodes the body.

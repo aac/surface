@@ -1,0 +1,22 @@
+[package]
+name = "poke-rust-server"
+version = "0.1.0"
+edition = "2021"
+
+# Crate picks (kept minimal — see top-of-main.rs comment for rationale):
+# - tiny_http: small synchronous HTTP server; no async runtime needed for a single-process
+#   localhost reference. Multi-threaded via a small worker pool.
+# - serde_json: de-facto JSON in Rust; equivalent in role to encoding/json in the Go sibling.
+# - chrono: RFC3339 timestamps with microsecond precision. Manual formatting is feasible
+#   but pulls in the same gnarly leap-second/timezone handling chrono already solves.
+# - multipart: streaming multipart parser that pairs with tiny_http's blocking reader.
+#   tiny_http has no built-in multipart parsing.
+[dependencies]
+tiny_http = "0.12"
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+multipart = { version = "0.18", default-features = false, features = ["server"] }
+
+[profile.release]
+opt-level = 3
+lto = "thin"
