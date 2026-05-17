@@ -27,13 +27,16 @@ These are the through-lines from the v0 design conversation. They override surfa
 - Distribution: `git clone` into `~/Workspace/poke`; symlink to `~/.claude/skills/poke`.
 - Verification gate (v0 complete =): `examples/server.go` compiles and runs end-to-end against a curl'd submission; SKILL.md activates via the symlink (smoke test).
 
-## Future setup (when implementation begins)
+## Project trackers (active)
 
-These get added when the plan begins implementation, not now:
+Two trackers run alongside each other on this project. They serve distinct audiences and should not be conflated.
 
-- `act` for task tracking — same conventions as the ask repo (`act ready`, `act show`, `act update --claim`, `act close --reason`, commits include `(act-XXXX)` markers).
-- `.act/hooks/close` for pre-close gates (`gofmt -l .` empty, `go vet ./...`, `go test ./...`).
-- `.githooks/commit-msg` for direct-commit-to-main guard, matching the pattern in the ask repo.
+- **`act`** — agent task tracker. Implementation work the next available agent can pick up. `act ready` lists unblocked work; `act update --claim <id>` to take it; `act close <id> --reason "..."` when done; commit messages include `(act-XXXX)` markers. Pre-close gates: `gofmt -l .` empty, `go vet ./...`, `go test ./...`. Direct-commit-to-main guard via `.githooks/commit-msg`.
+- **`ask`** — agent-to-human request inbox. Things Andrew needs to decide or act on personally — paid-infrastructure provisioning, design preference calls, anything where the resolution requires Andrew's judgment, not implementation skill. `ask list` to see open asks; agents file via `ask new <title> --urgency <blocker|normal|fyi> --body "..."`. Convert an act ticket to an ask (and close the act side with `--reason "converted to ask-XXXX"`) the moment you realize the blocker is Andrew's call, not pending implementation.
+
+Decision rule: is this work that any agent could pick up and do, or work that needs Andrew specifically? Former → act. Latter → ask.
+
+Note: this is the **project's** workflow. The `poke stands alone` principle in §"Core principles" is about the poke skill having no dependency on ask/act — that's a property of the skill bundle, not a comment on how we run this repo's own development.
 
 ## Branch policy
 

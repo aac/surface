@@ -20,3 +20,4 @@ __pycache__/
 
 # act
 .act/index.db
+.ask/
