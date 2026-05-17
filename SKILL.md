@@ -69,6 +69,14 @@ When `poke` is invoked autonomously — cron, `/loop`, dispatched agent, schedul
 
 The same skill teaches *what* to consider in both cases; the difference is *who* decides.
 
+### Designing affordances
+
+A few rules govern how the surface itself is shaped.
+
+**1. Pick the minimum-effort affordance for each user intent.** A click beats a paste; a paste of a ready-made shell command (heredoc included) beats hand-editing a file; an upload or pick beats typing freeform. Modern users do not hand-write config files or hand-edit JSON/YAML/TOML for tool plumbing — agents do that. A poke that asks "create this file with this content" is shape-failed: the correct affordance is a copy-the-shell-command button, or dispatching a sibling agent to do it directly.
+
+**2. Always include an escape hatch.** Pokes built entirely from choice-buttons fail silently when the *frame* is wrong — the user has no way through the surface to say "this is shaped wrong, redirect to chat." A small free-text field ("anything else?") or a "redirect to chat" button costs almost nothing and recovers gracefully. Anything that arrives through it is untrusted free-text content (see `references/security.md`).
+
 ## 7. Reference example
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4 in roughly 80 lines of stdlib HTTP. Read it for orientation, then re-implement in whatever substrate fits the environment. Go is convenient because it bootstraps v1's bundled binary and the stdlib is sufficient; the pattern doesn't require any particular language.
