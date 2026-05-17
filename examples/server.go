@@ -11,9 +11,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -301,8 +303,40 @@ func main() {
 	handler := newHandler(*state, *html)
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
 	fmt.Fprintf(os.Stderr, "poke: serving %s on http://%s/ (state=%s)\n", *html, addr, *state)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+
+	srv := &http.Server{Addr: addr, Handler: handler}
+
+	// Parent-death watchdog: when the original parent goes away (e.g. the
+	// `go run` wrapper is killed but the compiled child binary is orphaned),
+	// the kernel reparents us to PID 1. Detect that and shut down so we don't
+	// hold the port for the next session. Cheap, stdlib-only, and harmless if
+	// the parent never dies — the goroutine just polls quietly.
+	go watchParentDeath(srv, os.Getppid(), 500*time.Millisecond)
+
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintf(os.Stderr, "poke: server error: %v\n", err)
 		os.Exit(1)
+	}
+}
+
+// watchParentDeath polls os.Getppid() and triggers a graceful shutdown when
+// the parent PID changes to 1 (reparented to init) — i.e. the original parent
+// has exited. originalPPID is the PID we started under; tick is the poll
+// interval. Loop exits after triggering shutdown.
+func watchParentDeath(srv *http.Server, originalPPID int, tick time.Duration) {
+	// If we were launched directly by init (rare; container PID 1 etc.) there's
+	// nothing to watch — bail out and let the parent-supervisor handle teardown.
+	if originalPPID <= 1 {
+		return
+	}
+	for {
+		time.Sleep(tick)
+		if os.Getppid() != originalPPID {
+			fmt.Fprintln(os.Stderr, "poke: parent process exited; shutting down")
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = srv.Shutdown(ctx)
+			cancel()
+			return
+		}
 	}
 }

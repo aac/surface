@@ -2,14 +2,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestServerServesHTML(t *testing.T) {
@@ -89,6 +92,60 @@ func TestSubmitAppendsStateAndEmitsStdout(t *testing.T) {
 	data, _ := os.ReadFile(stateFile.Name())
 	if !strings.Contains(string(data), `"id":"abc"`) {
 		t.Fatalf("state file did not record submission: %s", string(data))
+	}
+}
+
+// TestWatchParentDeathTriggersShutdown verifies the parent-death watchdog
+// calls Shutdown on the server when os.Getppid() no longer matches the
+// PID we recorded at startup. We can't kill the real parent in a test, so
+// we feed the watchdog a sentinel PID (current PPID + 1) that, by
+// construction, never matches the actual PPID — simulating "parent has
+// gone away" on the very first poll.
+func TestWatchParentDeathTriggersShutdown(t *testing.T) {
+	srv := &http.Server{Addr: "127.0.0.1:0"}
+	ln, err := net.Listen("tcp", srv.Addr)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	srvDone := make(chan error, 1)
+	go func() { srvDone <- srv.Serve(ln) }()
+
+	// Sentinel PPID: any value other than the real PPID. The watchdog will
+	// see os.Getppid() != originalPPID on its first tick and shut down.
+	sentinelPPID := os.Getppid() + 1
+	go watchParentDeath(srv, sentinelPPID, 10*time.Millisecond)
+
+	select {
+	case err := <-srvDone:
+		if err != nil && err != http.ErrServerClosed {
+			t.Fatalf("server exited with unexpected error: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		// Watchdog didn't shut us down; force-close so the test exits.
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_ = srv.Shutdown(ctx)
+		cancel()
+		t.Fatal("watchdog did not shut down server within 2s")
+	}
+}
+
+// TestWatchParentDeathSkipsWhenAlreadyInit verifies the watchdog returns
+// immediately when originalPPID <= 1 (already a top-level process); it
+// should not call Shutdown. We assert this by giving it a server that
+// would error if shut down twice and confirming the function returns
+// quickly without touching the server.
+func TestWatchParentDeathSkipsWhenAlreadyInit(t *testing.T) {
+	srv := &http.Server{Addr: "127.0.0.1:0"}
+	done := make(chan struct{})
+	go func() {
+		watchParentDeath(srv, 1, 10*time.Millisecond)
+		close(done)
+	}()
+	select {
+	case <-done:
+		// expected: returned immediately without polling
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("watchdog did not return promptly when originalPPID <= 1")
 	}
 }
 

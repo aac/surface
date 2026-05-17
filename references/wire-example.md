@@ -246,6 +246,25 @@ The drain loop sees the line, splits on the first two spaces
 with the destructive operation. Then it tears down the server and removes the
 state file.
 
+## Lifecycle of the reference server
+
+A practical note when spawning the reference server via `go run`: the PID the
+shell sees is the `go run` wrapper, not the compiled child binary. Killing the
+wrapper does not always reap the child, which can leave the server holding the
+port between sessions. Two ways to avoid this:
+
+- Build first, then run, so the agent owns the real PID:
+  `go build -o /tmp/poke-serve ./examples/ && /tmp/poke-serve --state … --html … --port …`.
+- Or tear down by port rather than PID:
+  `lsof -t -i :<port> | xargs kill`.
+
+As a belt-and-suspenders measure, the reference server installs a
+parent-death watchdog: if its original parent process exits (the kernel
+reparents it to PID 1), it shuts itself down. This catches the common
+`go run` orphan case automatically; agents implementing alternative wires
+should consider equivalent self-teardown if their substrate has the same
+hazard.
+
 ## Beyond the wire
 
 What this document does not specify is intentional: port choice, server
