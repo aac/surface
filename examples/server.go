@@ -61,6 +61,12 @@ func newHandler(statePath, htmlPath string) *Handler {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/":
+		// no-store guards against stale-tab hazard: if a previous poke left
+		// a browser tab open at this URL and a new server later binds the
+		// same port, the cached page would otherwise interact with whatever
+		// is now running. Nudging the browser to refetch keeps the surface
+		// consistent with the server's current state.
+		w.Header().Set("Cache-Control", "no-store, must-revalidate")
 		http.ServeFile(w, r, h.htmlPath)
 	case r.Method == http.MethodPost && r.URL.Path == "/submit":
 		h.submit(w, r)

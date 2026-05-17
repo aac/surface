@@ -44,6 +44,13 @@ func TestServerServesHTML(t *testing.T) {
 	if !strings.Contains(string(body), "hello poke") {
 		t.Fatalf("body did not contain expected HTML: %s", string(body))
 	}
+	// Cache-Control: no-store guards against the stale-tab-on-reused-port
+	// hazard. The exact directives are an implementation choice; the
+	// requirement is that browsers be told not to use a cached copy.
+	cc := rec.Result().Header.Get("Cache-Control")
+	if !strings.Contains(cc, "no-store") {
+		t.Fatalf("Cache-Control missing no-store: %q", cc)
+	}
 }
 
 func TestSubmitAppendsStateAndEmitsStdout(t *testing.T) {

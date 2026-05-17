@@ -109,3 +109,5 @@ Polling mechanisms (`ScheduleWakeup`, `/loop`) trade latency for portability. Ma
 ## Beyond the pattern
 
 Timeouts (user never clicks), idempotency (the same submission seen twice — duplicate Monitor delivery, retried multipart upload), retry, recovery after server crash, concurrent pokes, port choice, and state-file lifecycle are agent responsibilities, not pattern responsibilities. See `pattern.md` §"Beyond the pattern" for the full list. The pattern fixes the *requirement* of autonomous draining; the agent decides how robust the loop around it needs to be for the task at hand.
+
+One specific operational hazard worth naming: if you reuse a port across pokes, prior browser tabs cached on that URL will interact with whatever server is currently bound — possibly a new one rendering the wrong page. The reference server sends `Cache-Control: no-store, must-revalidate` on the served HTML to nudge browsers to refetch; agents that build their own wires should consider the same, or rotate ports per poke so cached tabs simply 404 against a closed port.
