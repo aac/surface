@@ -1,64 +1,62 @@
-# poke — Session Handoff (end of v0 + extensive dogfood)
+# poke — Session Handoff (after overnight orchestrate)
 
-**Date:** 2026-05-17 (UTC)
-**Branch:** main
-**Status:** v0 shipped, three substrates landed (Go local, Python local, Cloudflare Worker hosted), five pokes dogfooded end-to-end (vibe-click, draw-canvas, design-iteration with escape hatch, settings-paste, hosted hi-from-cloudflare). Cloudflare worker is live; ten-plus follow-up tickets open. No work in flight at handoff.
+**Date:** 2026-05-17 (UTC, post-overnight)
+**Branch:** main @ `1641c3b`
+**Status:** Five overnight tickets landed (worker bundle, doc precision, Node reference impl). Only two open tickets remain in backlog and both are explicitly "needs Andrew." One new ticket filed mid-session (act-a063) capturing a substrate-test the previous wave missed by design.
 
-## Substrate state
+## What landed overnight
 
-- **`examples/server.go`** — Go stdlib reference. Includes parent-death watchdog, Cache-Control no-store, `--drain-mode={stdout,fs}` flag for fs-watch drain. 5 tests pass.
-- **`examples/server.py`** — Python stdlib reference mirroring the Go contract. 6 tests pass. Cross-impl smoke test confirmed byte-identical wire behavior.
-- **`examples/worker/`** — Cloudflare Worker + KV, TypeScript. Deployed live at `https://poke-example.andrew-cove-cloudflare.workers.dev`. Uses KV for per-session state, `/poll` endpoint for drain (no stdout in Worker land), two-layer CSRF (Origin + per-session token), ~128-bit unguessable session IDs as the access boundary. Multipart uploads are 501-stub (R2-backed multipart is a separately tracked v2 candidate).
+- **act-8d70 / 8b68 / fdbe** (worker bundle, single commit `736797e`): Cloudflare worker now 404s bare root with empty body, 308-redirects `/<sid>` → `/<sid>/` so relative-path fetches resolve, and example HTML in `examples/worker/README.md` + `references/hosted-example.md` checks `response.ok` before showing success. `references/wire-example.md` got a one-line companion note for the local-wire case.
+- **act-76ea** (doc precision, commit `9b4eea2`): `references/wire-example.md` and `docs/plan.md` "Shared contracts" relax `RFC3339Nano` → `RFC3339, precision implementation-defined`, and call out JSON field ordering as implementation-defined.
+- **act-e719** (Node reference impl, commit `73f584b`): `examples/server.mjs` (612 lines) + `examples/server.test.mjs` (318 lines, 9 tests, all pass). Node stdlib only, hand-rolled multipart parser, atomic state writes, parent-death watchdog — mirrors Go/Python shape. Cross-impl byte-identical wire confirmed: same SUBMIT line from all three servers for the same JSON submission.
 
-## Open backlog (no work in flight)
+Test gates green on merged main: `gofmt -l .` empty, `go vet` clean, `go test` ok, Node tests 9/9 pass.
 
-Triaged into "safe to attempt without Andrew" and "needs Andrew" buckets.
+## Cloudflare worker — needs your action
 
-**Safe overnight** — no decisions required, root causes validated by dogfood:
+Code changes are merged but **NOT deployed**. Run:
 
-- **Worker bare-root 404.** `GET /` currently returns the literal string `ok`. Should 404. p2.
-- **Worker trailing-slash redirect.** `GET /<sid>` (no trailing slash) makes `./submit` resolve to `/submit` (root), 404. Either redirect to `/<sid>/` form or prescribe absolute-path fetches in hosted-example.md. **p1** — this is the bug that silently failed the first hi-from-cloudflare poke before the fix-validation succeeded.
-- **Example HTML must check `response.ok`.** Current pattern in worker README does `await fetch(...)` and unconditionally shows success. Companion to the "honest confirmation messages" affordance-design rule (which landed in SKILL.md §6 today). p2.
-- **Doc precision for non-Go implementers.** `references/wire-example.md` / `docs/plan.md` "Shared contracts" specify `RFC3339Nano` (Go-specific) for timestamps and don't address JSON field ordering. Both surfaced by the Python port. Should relax to "RFC3339-shaped, precision implementation-defined" and "field ordering is implementation-defined, parse by key." p2.
-- **Node reference implementation.** Sibling to the just-landed Python port. Stdlib over Express; mirror the Go/Python contracts. p2, looser scope than the others — agent may need to make framework choices (raw `http` vs Express vs Hono). If you want a clean small win overnight, instruct the orchestrator to skip Node.
+```
+cd examples/worker && wrangler deploy
+```
 
-**Needs Andrew** — skip overnight:
+Then re-test the bare-root and trailing-slash bugs against the live URL.
 
-- **R2-backed multipart for the Worker.** v2 candidate. Needs your call on R2 bucket setup, cost framing, possibly a binding choice. p3.
-- **Bundled `poke-serve` binary.** Release infrastructure (GoReleaser vs GitHub Action vs checked-in tarballs) is a preference call. p3, explicitly deferred.
+## Open backlog after overnight
 
-## Cloudflare deployment notes
+**Needs Andrew (skip without your call):**
 
-- Live URL: `https://poke-example.andrew-cove-cloudflare.workers.dev`
-- KV namespace `POKE_STATE` (id `5f70241b834d4e789d5b9c1272bcc659`) holds session state.
-- Two test sessions in KV from today's dogfood (one click captured in each); fine to GC if you want them gone — `wrangler kv key delete ...`.
-- `PROVISION_TOKEN` was rotated several times today via `wrangler secret put`. Whatever's current is fine — only used to gate `/_provision`, not session serving.
+- **act-9dc1** (p3, v2-candidate): R2-backed multipart for the Cloudflare worker. Needs R2 bucket setup, cost framing, possibly a binding choice.
+- **act-db17** (p3, v1-candidate): Bundled `poke-serve` binary. Release infrastructure (GoReleaser vs GitHub Action vs checked-in tarballs) is a preference call.
+
+**New mid-session — caught a flaw in last night's substrate-test design:**
+
+- **act-a063** (p2, task): Build a sibling reference impl from references ONLY (no peek at `examples/`). The "alternative-language" wave (Python in act-7bd1, Node in act-e719) was supposed to validate the substrate-agnostic claim, but both ports were dispatched with the existing implementations explicitly in their context-gathering prompts. They cloned the existing impls' shape rather than independently deriving from the references. The proper test: pick a language sufficiently distinct (Rust, Deno, Elixir, Ruby), forbid reading `examples/` until the impl is done, post-impl coherence pass to surface doc gaps. The Python port's doc-precision findings (act-76ea) were a partial signal — a references-only run would surface a richer, more representative set.
+
+## Notes from the agents
+
+- **Security hook false-positive on Node files.** The Node-port agent reported that `security_reminder_hook.py` fires with a warning about a particular shell-invocation API when writing `examples/server.mjs`, even though the file doesn't use that API. The hook's text-match is too broad on JS/MJS files (it even fires on prose mentioning the trigger string). Worked around with a heredoc. Worth knowing if more Node work lands — and worth considering whether the hook should narrow its match.
 
 ## bgIsolation harness setting
 
-`/Users/andrewcove/Workspace/poke/.claude/settings.json` now has `{"worktree": {"bgIsolation": "none"}}`. The setting takes effect on the **next** Claude session start in this repo — so the overnight `/orchestrate` session will be able to use `Edit`/`Write` on main-checkout files directly, no Bash heredoc workarounds needed.
+`.claude/settings.json` has `{"worktree": {"bgIsolation": "none"}}` (set yesterday). Took effect for the overnight session — the orchestrator was able to Edit/Write on main-checkout paths directly when needed.
 
-## How to kick off overnight
+## Worktree cleanup status
 
-Open a fresh Claude Code session in `~/Workspace/poke`, type `/orchestrate`. The orchestrator will:
+Two of three completed worktrees were force-removed mid-pass. One worktree (`agent-a700b06f7e0f63304`, doc-precision) is still around because the orchestrator's cwd lived inside it; it'll get cleaned up the next time `/orchestrate` runs.
 
-1. Read this handoff and CLAUDE.md.
-2. Run `act ready` to find unblocked work.
-3. Dispatch what fits in parallel (the worker bug fixes likely bundle into one agent on a single branch; the Python-port-surfaced doc-precision is independent; Node port is independent).
-4. Merge as agents complete. Halt and surface if any rebase hits conflicts.
-5. Stop after one pass. Run `/orchestrate` again in the morning for any further passes.
+## What to do next
 
-If you want the conservative version, tell it explicitly: "skip the Node port; do the three worker fixes and the doc-precision relaxation only." If you want it to figure out scope, just `/orchestrate`.
+If you want to keep momentum on the project itself:
 
-## Halt conditions (orchestrate skill)
+1. Deploy the worker (above) — gates the dogfood validation of the bug fixes.
+2. Re-dogfood the hi-from-cloudflare poke against the deployed fix — confirm trailing-slash redirect works in practice.
+3. Decide on act-a063 (references-only substrate test) — Rust? Deno? Elixir? Pick a language and let an `/orchestrate` pass dispatch it with the corrected constraints.
 
-- Bg agent reports an issue → halt and surface.
-- Rebase hits conflicts → halt and surface (overlapping work).
-- Worktree locked by live process → surface, don't force.
-- Agent surfaces a question via bg-task → it'll wait; you respond in the morning.
+If you want to stop here, the backlog is calmly waiting and v0 is fully shipped + substrate-agnostic-by-three-impls (with the caveat captured in act-a063 about how the third was validated).
 
-## Reading order for the morning
+## Reading order for next session
 
 1. This file (just an overview).
-2. `git log` since the timestamp of this commit — see what overnight landed.
-3. `act list | grep -v closed` — open backlog after overnight.
+2. `git log e21fb56..HEAD` — full diff of the overnight work.
+3. `act list | grep -v closed` — current open backlog (should match the three tickets above).
