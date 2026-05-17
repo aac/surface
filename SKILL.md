@@ -79,6 +79,8 @@ A few rules govern how the surface itself is shaped.
 
 **3. One affordance, one user intent.** Minimum effort applies *within* a single semantic action, not across distinct ones. Don't merge intents into one button just to save a click — e.g., a single "copy command + mark done" button conflates a clipboard mechanism with a confirmation that the outcome actually exists, and the agent's "done" signal then fires on intent rather than completion. Enumerate the user's distinct intents first; design the minimum-effort affordance per intent; do not merge across them.
 
+**4. Confirmation messages describe what actually happens.** Don't invent agents, queues, or timing that don't exist — "X will pick this up next pass" reads as flattery rather than fact when there's no X and no scheduled pass. Name the real mechanism (file written, job queued, advisory only — loads on next session start) or just acknowledge the click ("saved", "recorded", "done"). Aspirational confirmation copy is a small lie that compounds when the user later acts on it.
+
 ## 7. Reference example
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4 in roughly 80 lines of stdlib HTTP. Read it for orientation, then re-implement in whatever substrate fits the environment. Go is convenient because it bootstraps v1's bundled binary and the stdlib is sufficient; the pattern doesn't require any particular language.
