@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# commit-msg hook for the poke repo.
+#
+# Blocks direct work commits to `main` from the main checkout. Agents
+# dispatched by the orchestrator are supposed to run in a worktree under
+# .claude/worktrees/agent-<id>/. When their cwd is wrong they commit into
+# main's working tree, the close-gate passes (tree is fine), and main ends
+# up with rogue commits the orchestrator then has to recover.
+#
+# Escape conditions (any one of these allows the commit):
+#   - Current branch is not `main` (every worktree has its own branch).
+#   - A merge is in progress (MERGE_HEAD exists in $GIT_DIR).
+#   - The commit message's first line starts with `act-op:` (the `act` CLI's
+#     own bookkeeping commits — claim/close/etc — are legitimate on main).
+#   - $POKE_ALLOW_DIRECT_MAIN is non-empty (manual escape hatch).
+#
+# Install once, per checkout, with:
+#   git config --local core.hooksPath .githooks
+
+set -uo pipefail
+
+msg_file="${1:-}"
+
+branch="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
+
+if [ "$branch" != "main" ]; then
+  exit 0
+fi
+
+git_dir="$(git rev-parse --git-dir 2>/dev/null || echo .git)"
+if [ -e "$git_dir/MERGE_HEAD" ]; then
+  exit 0
+fi
+
+if [ -n "${POKE_ALLOW_DIRECT_MAIN:-}" ]; then
+  exit 0
+fi
+
+first_line=""
+if [ -n "$msg_file" ] && [ -r "$msg_file" ]; then
+  first_line="$(head -n1 "$msg_file" 2>/dev/null || true)"
+fi
+case "$first_line" in
+  "act-op:"*)
+    exit 0
+    ;;
+esac
+
+cwd="$(pwd)"
+cat >&2 <<MSG
+[commit-msg] BLOCKED: direct commit to 'main' from $cwd
+
+If you are a sub-agent dispatched by the orchestrator, you are in the
+WRONG DIRECTORY. Each dispatched agent has its own worktree at:
+
+  /Users/andrewcove/Workspace/poke/.claude/worktrees/agent-<id>/
+
+Run 'pwd' to confirm where you are. If the path does not contain
+'.claude/worktrees/agent-', cd into your worktree and re-run the commit
+there.
+
+Allowed on main without the bypass:
+  - commits with a message starting with 'act-op:' (the act CLI's
+    bookkeeping commits)
+  - merges in progress (MERGE_HEAD set; e.g. orchestrator ff-merges)
+  - commits on any branch other than main
+
+Bypass (use sparingly, e.g. when hand-editing on main):
+  POKE_ALLOW_DIRECT_MAIN=1 git commit ...
+MSG
+exit 1
