@@ -77,6 +77,8 @@ A few rules govern how the surface itself is shaped.
 
 **2. Always include an escape hatch.** Pokes built entirely from choice-buttons fail silently when the *frame* is wrong — the user has no way through the surface to say "this is shaped wrong, redirect to chat." A small free-text field ("anything else?") or a "redirect to chat" button costs almost nothing and recovers gracefully. Anything that arrives through it is untrusted free-text content (see `references/security.md`).
 
+**3. One affordance, one user intent.** Minimum effort applies *within* a single semantic action, not across distinct ones. Don't merge intents into one button just to save a click — e.g., a single "copy command + mark done" button conflates a clipboard mechanism with a confirmation that the outcome actually exists, and the agent's "done" signal then fires on intent rather than completion. Enumerate the user's distinct intents first; design the minimum-effort affordance per intent; do not merge across them.
+
 ## 7. Reference example
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4 in roughly 80 lines of stdlib HTTP. Read it for orientation, then re-implement in whatever substrate fits the environment. Go is convenient because it bootstraps v1's bundled binary and the stdlib is sufficient; the pattern doesn't require any particular language.
