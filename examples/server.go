@@ -197,7 +197,10 @@ func (h *Handler) submitMultipart(w http.ResponseWriter, r *http.Request) {
 
 	// Collect uploaded files, saving each to a per-process tmpdir under
 	// os.TempDir(). Path shape: <TempDir>/poke-uploads/<random-hex>-<safe-name>.
-	var savedPaths []string
+	// Initialize as empty slice (not nil) so JSON marshaling always emits []
+	// rather than null when no files are present — the wire contract documents
+	// `files` as an array that is always present.
+	savedPaths := []string{}
 	uploadDir := filepath.Join(os.TempDir(), "poke-uploads")
 	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
 		http.Error(w, "create upload dir: "+err.Error(), http.StatusInternalServerError)

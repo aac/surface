@@ -9,8 +9,8 @@ are equally valid as long as the pattern in `pattern.md` is preserved.
 Conformance is to the pattern, not to this wire.
 
 The reference server at `examples/server.go` implements exactly this wire in
-the Go standard library, in ~80 lines. Read it for orientation; reimplement in
-whatever substrate fits your environment.
+the Go standard library, no external dependencies. Read it for orientation;
+reimplement in whatever substrate fits your environment.
 
 ## Routes
 
@@ -174,15 +174,13 @@ state to `/tmp/poke-state.json`:
 <!doctype html>
 <html><body>
   <p>Confirm destructive op 42?</p>
-  <form action="/submit" method="post" enctype="application/json">
-    <button type="button" onclick="
-      fetch('/submit', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({id: 'a1b2c3', payload: null})
-      }).then(() => document.body.innerText = 'Thanks.')
-    ">Confirm</button>
-  </form>
+  <button onclick="
+    fetch('/submit', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({id: 'a1b2c3', payload: null})
+    }).then(() => document.body.innerText = 'Thanks.')
+  ">Confirm</button>
 </body></html>
 ```
 
