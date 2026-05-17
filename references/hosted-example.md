@@ -40,12 +40,37 @@ one concrete shape.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/` | Friendly landing page. Nothing useful without a session ID. |
+| `GET` | `/` | Empty-body 404. The hosted worker has no landing page by design — bare root reveals nothing about the deployment. |
 | `POST` | `/_provision` | Agent-only. Creates a new session and returns `{session_id, url, csrf_token}`. Bearer-token gated. |
-| `GET` | `/<session_id>` | Renders the agent-provisioned HTML for the session. CSRF token injected as `window.POKE_CSRF_TOKEN`. |
+| `GET` | `/<session_id>` | 308 redirect to `/<session_id>/`. The canonical session URL has a trailing slash so relative-path fetches in the served HTML (`fetch('./submit')`) resolve to `/<session_id>/submit`. |
+| `GET` | `/<session_id>/` | Renders the agent-provisioned HTML for the session. CSRF token injected as `window.POKE_CSRF_TOKEN`. |
 | `POST` | `/<session_id>/submit` | Accepts a submission. JSON only in v0. CSRF-protected. |
 | `GET` | `/<session_id>/poll?since=<unix-ms>` | Drain endpoint. Returns submissions newer than `since`. |
 | `POST` | `/<session_id>/upload` | Stub. Multipart file uploads are out of scope for v0; returns 501. |
+
+### URL shape
+
+The canonical session URL ends in a trailing slash (`/<session_id>/`). This
+matters because relative-path fetches in the served HTML (`fetch('./submit')`,
+`fetch('./poll?since=0')`) resolve against the page URL — and from a
+no-trailing-slash `/<session_id>`, the browser resolves `./submit` to
+`/submit` at the root, which 404s. The worker emits a 308 redirect from
+`/<session_id>` to `/<session_id>/` to neutralise the footgun, and
+`POST /_provision` returns the trailing-slash form so agents shipping the URL
+get the canonical shape directly. HTML authors can also use absolute paths
+constructed from the injected `window.POKE_SESSION_ID` shim
+(`fetch(\`/${window.POKE_SESSION_ID}/submit\`, ...)`) — slightly more
+explicit, immune to relative-path quirks if the surface is ever served from
+a different mount point.
+
+### Bare root
+
+`GET /` returns an empty-body 404. There's no legitimate visitor for the
+bare hostname: real visits go to `/<session_id>/`, and provisioning is the
+agent's job over `POST /_provision` (Bearer-gated). Treating the worker as
+invisible infrastructure — no landing page, no friendly message, no
+endpoint list — keeps the deployment from advertising itself to anyone who
+guesses the hostname.
 
 `/poll` is hosted-substrate-specific. The local wire (`wire-example.md`) has
 no equivalent — it uses stdout `SUBMIT` lines instead. Implementations of
@@ -118,6 +143,37 @@ use case (a human clicking buttons) this is a non-issue; agents anticipating
 high concurrency should pick a substrate with proper transactional
 semantics.
 
+### Check `response.ok` before showing success
+
+A `fetch()` promise resolves with a `Response` object for *any* HTTP status
+— 200, 403, 404, 500 all "succeed" from the promise's point of view. HTML
+that does `await fetch(...); show('sent')` will report success even when the
+worker rejected (CSRF failure, wrong URL, session expired). The page's
+"sent" message diverges from reality and the agent never sees the
+submission. Always gate the success UI on `response.ok`:
+
+```js
+const r = await fetch('./submit', {
+  method: 'POST',
+  headers: {
+    'content-type': 'application/json',
+    'x-poke-csrf': window.POKE_CSRF_TOKEN,
+  },
+  body: JSON.stringify({ id: 'approve', payload: null }),
+});
+if (!r.ok) {
+  document.getElementById('err').textContent = `submit failed (${r.status})`;
+  document.getElementById('err').classList.add('show');
+  return;
+}
+// only NOW mark success
+document.getElementById('done').classList.add('show');
+```
+
+This is the UI-layer companion to the "honest confirmation messages" rule
+for affordance design: the page's success state must reflect the worker's
+actual response, not just the network round-trip completing.
+
 Multipart file uploads are explicitly out of scope for the worker v0. KV
 isn't suitable for binary blobs (per-value cap, no streaming, base64
 overhead). R2 is the right hosted answer; adding it is tracked as a
@@ -173,7 +229,7 @@ curl -s -X POST https://poke-example.andrew-cove-cloudflare.workers.dev/_provisi
   -H "authorization: Bearer $PROVISION_TOKEN" \
   -H "content-type: application/json" \
   -d '{
-    "html": "<!doctype html><html><head><title>Approve?</title></head><body><p>Approve PR 42?</p><button id=ok>Approve</button><script>document.getElementById(\"ok\").onclick=async()=>{await fetch(\"./submit\",{method:\"POST\",headers:{\"content-type\":\"application/json\",\"x-poke-csrf\":window.POKE_CSRF_TOKEN},body:JSON.stringify({id:\"approve\",payload:null})});document.body.textContent=\"Thanks.\";}</script></body></html>",
+    "html": "<!doctype html><html><head><title>Approve?</title></head><body><p>Approve PR 42?</p><button id=ok>Approve</button><script>document.getElementById(\"ok\").onclick=async()=>{const r=await fetch(\"./submit\",{method:\"POST\",headers:{\"content-type\":\"application/json\",\"x-poke-csrf\":window.POKE_CSRF_TOKEN},body:JSON.stringify({id:\"approve\",payload:null})});if(!r.ok){document.body.textContent=\"submit failed (\"+r.status+\")\";return;}document.body.textContent=\"Thanks.\";}</script></body></html>",
     "affordances": {
       "approve": { "label": "Approve", "intent": "approve_pr_42" }
     }
@@ -185,7 +241,7 @@ Response:
 ```json
 {
   "session_id": "004210469044a4da7415f6a6e4bb6f88",
-  "url": "https://poke-example.andrew-cove-cloudflare.workers.dev/004210469044a4da7415f6a6e4bb6f88",
+  "url": "https://poke-example.andrew-cove-cloudflare.workers.dev/004210469044a4da7415f6a6e4bb6f88/",
   "csrf_token": "e757dd1794c9025653fe50ada3cc269c"
 }
 ```
@@ -197,7 +253,9 @@ The URL is self-contained: clicking it opens the surface, no auth dance.
 
 ### 3. User opens the page, clicks Approve
 
-The browser POSTs:
+The browser POSTs (relative `./submit` resolves against the page URL
+`/004210469044a4da7415f6a6e4bb6f88/`, so the actual request is to
+`/004210469044a4da7415f6a6e4bb6f88/submit`):
 
 ```http
 POST /004210469044a4da7415f6a6e4bb6f88/submit HTTP/1.1

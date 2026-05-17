@@ -103,6 +103,14 @@ constraint is named here to make it explicit for implementers.
    short text message; the agent's drain loop reacts to the stdout SUBMIT
    line, not to the HTTP response.
 
+HTML that submits to `/submit` should gate its success UI on `response.ok` —
+a `fetch()` promise resolves on *any* HTTP status (200, 400, 404, 500), so a
+4xx returned by the server will still flow into the success branch unless
+the page explicitly checks. The local wire is permissive (only `400` on
+malformed JSON), so this matters less here than in the hosted substrate, but
+the principle applies: the page's "sent" state must reflect the server's
+actual response.
+
 ### `multipart/form-data` — file uploads
 
 Body carries:

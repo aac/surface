@@ -106,12 +106,13 @@ async function writeState(env: Env, state: SessionState): Promise<void> {
 
 // GET /
 //
-// Friendly landing page; pokes live at /<session_id>. Nothing to do here
-// without a session ID, so we just point a reader at the docs.
+// Bare root has no legitimate visitor. Real visitors come to /<session_id>;
+// the agent provisions via POST /_provision. Returning a 404 (empty body)
+// keeps the worker invisible infrastructure — no landing page that advertises
+// the deployment, no leak that confirms "there's a poke worker here." See
+// references/hosted-example.md "Bare root" for the rationale.
 function handleIndex(): Response {
-  return textResponse(
-    "poke worker — provision via POST /_provision (Bearer auth), then visit /<session_id>.",
-  );
+  return new Response(null, { status: 404 });
 }
 
 // POST /_provision
@@ -151,8 +152,12 @@ async function handleProvision(req: Request, env: Env): Promise<Response> {
   };
   await writeState(env, state);
 
+  // Canonical surface URL ends in a trailing slash so relative-path fetches
+  // in the served HTML (e.g. fetch('./submit')) resolve to /<sid>/submit.
+  // The router also 308-redirects /<sid> -> /<sid>/ for visitors who arrive
+  // at the bare form, so this is defense-in-depth.
   const url = new URL(req.url);
-  const surfaceUrl = `${url.protocol}//${url.host}/${sessionId}`;
+  const surfaceUrl = `${url.protocol}//${url.host}/${sessionId}/`;
   return jsonResponse({ session_id: sessionId, url: surfaceUrl, csrf_token: csrfToken });
 }
 
@@ -337,9 +342,10 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname;
 
-    // Root + provision are flat routes.
+    // Root + provision are flat routes. Bare root 404s for any method —
+    // there's no landing page and exposing a method-allowed surface would
+    // leak that the worker is here.
     if (path === "/" || path === "") {
-      if (req.method !== "GET") return textResponse("method not allowed", 405);
       return handleIndex();
     }
     if (path === "/_provision") {
@@ -357,6 +363,23 @@ export default {
       return textResponse("not found", 404);
     }
     const tail = segments.slice(1).join("/");
+
+    // The canonical session URL is /<session_id>/ (trailing slash). Relative
+    // fetches in the served HTML (e.g. fetch('./submit')) resolve against
+    // the page URL — and from a no-trailing-slash /<sid>, the browser
+    // resolves ./submit to /submit (root), which 404s. Redirect bare
+    // /<sid> to /<sid>/ so relative paths resolve as intended.
+    //
+    // 308 (Permanent Redirect) preserves method + body; it's the safer
+    // pick over 301 for any future POST that lands here by mistake. GETs
+    // (the common case — a user opening the URL) follow it transparently.
+    if (tail === "" && !path.endsWith("/")) {
+      const redirectUrl = `${url.origin}/${sessionId}/${url.search}`;
+      return new Response(null, {
+        status: 308,
+        headers: { location: redirectUrl },
+      });
+    }
 
     if (tail === "") {
       if (req.method !== "GET") return textResponse("method not allowed", 405);
