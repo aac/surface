@@ -1,74 +1,64 @@
-# poke — Session Handoff (v0 COMPLETE)
+# poke — Session Handoff (wrap-of-day, three agents in flight)
 
 **Date:** 2026-05-16
 **Branch:** main
-**Status:** v0 shipped. All 10 tasks closed and merged. Skill installed and verified active.
+**Status:** v0 shipped + dogfooded; three follow-up agents dispatched in worktrees while Andrew is away.
 
-## v0 deliverable
+## Shipped this session
 
-The poke skill bundle is live at `~/.claude/skills/poke` (symlink → `~/Workspace/poke`). It loads as `poke` in available-skills lists, with the refined trigger description from Task 9.
+- v0 (all 10 plan tasks closed + merged + verified end-to-end)
+- Dogfood across 4 surfaces (vibe-emoji-click, drawing canvas, settings-iso v2 with conflated buttons, settings-iso v3 with split buttons + escape hatch)
+- Three v0 dogfood findings closed + merged: `go run` orphan server (parent-death watchdog), smoke-test HTML plain-form bug (rewritten to fetch+JSON), stale-tab port-reuse hazard (Cache-Control: no-store)
+- bgIsolation harness relaxation landed via Andrew's one-paste shell command (effective on next Claude session start in this repo, not retroactively)
+- 3 memories captured covering affordance design + tracking rules
 
-On main:
-- `SKILL.md` — 80-line entry point, YAML frontmatter + 8 sections per design
-- `references/{pattern,wire-example,lifecycle,security}.md` — coherent after Task 7 reconciliation
-- `examples/server.go` + `examples/server_test.go` — stdlib-only Go reference, 3 tests pass
-- `README.md`, `LICENSE`, `.gitignore`, `go.mod`
-- `docs/{brief,plan,session-handoff}.md`, `CLAUDE.md`
-- `.act/` (tracker), `.githooks/commit-msg`, `.act/hooks/close`
+## In flight (3 bg agents dispatched)
 
-End-to-end smoke verified live this session:
-- `go run ./examples/server.go --state /tmp/poke-test.json --html /tmp/poke-test.html --port 5173`
-- `curl -X POST -H 'Content-Type: application/json' -d '{"id":"abc","payload":null}' http://127.0.0.1:5173/submit` → 200
-- Server stdout: `SUBMIT abc null` (matches shared contract exactly)
-- State file appended with RFC3339Nano timestamp
+1. **Docs bundle:** affordance-design SKILL.md addition (4 sub-principles: minimum effort, escape hatch, one-affordance-one-intent, honest confirmation messaging) + concrete prompt-injection examples in security.md. One agent doing all four ticket closes on a single branch, 4 commits.
+2. **Python reference implementation:** stdlib-only port of `examples/server.go` to `examples/server.py` plus `examples/test_server.py`. Validates the substrate-agnostic claim — if the references are right, an agent can port from docs alone.
+3. **Filesystem-watch drain example:** Either a `--drain-mode={stdout,fs}` flag on the existing server (shape A, recommended) or doc-only update (shape B), plus worked pseudocode in `references/lifecycle.md`.
 
-## Task ledger (all closed)
+## Next pass
 
-| Task | Act ID | Group | Closing commit |
-|---|---|---|---|
-| 1 — Repo hygiene | act-45d8 | A | `7cfed9d chore: gitignore and license (act-45d8)` |
-| 2 — pattern.md | act-1a65 | A | `c86b980 docs: references/pattern.md (act-1a65)` |
-| 3 — wire-example.md | act-56b2 | A | `a764c74 docs: references/wire-example.md (act-56b2)` |
-| 4 — lifecycle.md | act-0ba0 | A | `4320efb docs: references/lifecycle.md (act-0ba0)` |
-| 5 — security.md | act-9271 | A | `da2dba2 docs: references/security.md (act-9271)` |
-| 6 — server.go + tests | act-8e1b | A | `8b76634 feat(server): multipart upload path (act-8e1b)` |
-| 7 — coherence pass | act-0cd3 | B | `e4c7a69 docs: coherence pass on references and server (act-0cd3)` |
-| 8 — README.md | act-6937 | C | `08dec3f docs: human-facing README (act-6937)` |
-| 9 — SKILL.md | act-3887 | C | `02a7c87 feat: SKILL.md entry point with 8 sections (act-3887)` |
-| 10 — smoke test | act-e7f1 | D | (orchestrator-only; closed via reason, no work-commit) |
+When the three completions arrive (orchestrator will get notifications), the work is:
+1. Rebase + ff-merge each branch in order of completion.
+2. Run gates after each (`gofmt -l .`, `go vet ./...`, `go test ./...`).
+3. Prune worktrees + branches.
+4. Update this handoff to reflect the new state.
 
-## Notable choices made during implementation
+If any agent reports an issue rather than completion, halt per the orchestrate skill.
 
-- **Reference server defaults:** port 5173, bind 127.0.0.1, startup stderr line `poke: serving <html> on http://<bind>:<port>/ (state=<state>)`, multipart files at `<TempDir>/poke-uploads/<8-byte-hex>-<sanitized-basename>`, compact JSON state writes with atomic tmp+rename under a `sync.Mutex` that also guards stdout `SUBMIT` emission.
-- **Coherence pass (Task 7) fixed two real drifts:** (1) server emitted `"files":null` for no-file multipart submissions, doc said `[]` — server corrected to initialize `savedPaths` as `[]string{}`. (2) wire-example.md claimed server was "~80 lines" (it's 305); rewrote as "in the Go standard library, no external dependencies."
-- **`lifecycle.md` uses Python-style pseudocode** for the Monitor example (CC agents draining the server aren't necessarily writing Go).
-- **`pattern.md` invariant #4** got a parenthetical noting envelope-typed-by-construction doesn't extend to free-text/file content — flagged as security concern, kept out of pattern proper.
-- **README** uses `<repo-url>` placeholder (no git remote configured yet, matches brief).
+## Open backlog (after the in-flight three land)
 
-## Conventions installed for future work on poke
+Still tracked, no work in flight:
 
-- `act init` done; 10 issues filed and closed; future tasks file via `act create`.
-- `.act/hooks/close` runs `gofmt -l .`, `go vet ./...`, `go test -timeout 180s ./...`. Auto-skips vet/test when no Go files exist (handles future doc-only work cleanly).
-- `.githooks/commit-msg` blocks direct work-commits to main from anywhere except worktrees. `act-op:` commits and worktree-branch commits pass through. Bypass: `POKE_ALLOW_DIRECT_MAIN=1`.
-- `core.hooksPath = .githooks` set; worktrees inherit it.
-- All Group A/B/C worktrees pruned; branches deleted.
+- **Cloudflare Worker + KV deployment** — most novel remaining candidate; forces the hosted-deployment-posture discussion out of theory. Needs Andrew (CF account, possibly a subdomain).
+- **Node / Deno / Rust reference implementations** — sibling to the in-flight Python work; under the alt-language-impls umbrella ticket. Filed as the umbrella stays open after Python lands.
+- **Bundled `poke-serve` binary** — the v1 ergonomic upgrade; tracked, deferred until real-signal demands it.
 
-## What's NOT in v0 (per `docs/brief.md` §"Out of scope")
+## What's left for other-project use of poke
 
-Untouched and deferred until real use signal:
-- Bundled binary / installable tool (v1)
-- Formal `docs/spec.md`
-- Channel adapters (Slack, email, SMS, push, paging)
-- Auth model for hosted / public surfaces
-- Templating / surface-authoring helpers
-- Link expiration, one-time-use, persistent surfaces
-- Cross-implementation interop testing
-- Substantive prompt-injection mitigation patterns
+Strictly speaking, nothing blocks it today. The skill is installed at `~/.claude/skills/poke` user-wide; any Claude session in any directory sees it in available-skills. The friction items (Go runtime requirement for the reference server, localhost-shaped conventions) are real but small — agents can re-implement in the project's stack from the references, which is exactly what the in-flight Python work is validating.
 
-## Outstanding caller-side item
+The smoothing items are tracked: alt-language refs (Python in flight; Node/Deno/Rust still queued), bundled binary (deferred), Cloudflare for hosted shapes.
 
-`/Users/andrewcove/Workspace/poke/.claude/settings.json` with `{"worktree": {"bgIsolation": "none"}}` is still recommended for future orchestrator passes on this repo — would let main-checkout file edits proceed without Bash-heredoc workarounds. Not load-bearing right now (v0 is done), but the next time someone runs `/orchestrate` here for v1 work, this will keep things smooth.
+## Agent bookkeeping (ticket ids for orchestrator grep)
 
-## Next time
+Doc-bundle agent claims: `act-a637`, `act-78c1`, `act-ed80`, `act-2781` (close in that order).
+Python impl agent claims: `act-7bd1`.
+Fs-watch agent claims: `act-4f2b`.
 
-When you come back to poke for v1 (bundled binary, etc.), this handoff documents the conventions in place. Start with `CLAUDE.md` + the brief's "Out of scope" list to pick the next slice.
+Still-open after in-flight completes (in act): `act-e719` (alt-lang umbrella), `act-84a8` (Cloudflare), `act-db17` (bundled binary).
+
+## Halt conditions (orchestrate skill)
+
+- Bg agent reports an issue → halt and surface.
+- Rebase hits conflicts during merge-back → halt and surface.
+- Worktree locked by live process → don't force; surface.
+- Subagent surfaces an unresolved question via bg-task → respond, agent resumes.
+
+## Reading order for the next session
+
+1. `CLAUDE.md` (project) and the user's global CLAUDE.md — load-bearing principles. Note the new "don't cite ticket IDs to Andrew" rule landed mid-pass on 2026-05-16.
+2. This file.
+3. `docs/brief.md` / `docs/plan.md` only if a specific question arises about Cloudflare or v1 scope.
