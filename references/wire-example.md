@@ -133,12 +133,16 @@ actual response.
 
 ### `multipart/form-data` — file uploads
 
-**Body-size cap.** Implementations should cap multipart body size to protect
-against runaway memory use or accidental large uploads. The Go and Node
-references use 32 MiB (`32 << 20`); ephemeral-surface pokes don't need
-higher limits in practice. The specific cap is implementer's call — pick
-what fits the task — but having *some* cap is expected. Over-cap requests
-should return `413 Payload Too Large`.
+**Body-size cap.** Implementations should bound multipart upload size to
+protect against runaway memory use or accidental huge uploads. The Node
+reference enforces a hard 32 MiB body cap and returns `413 Payload Too
+Large` on over-cap; the Go reference uses 32 MiB as the in-memory ceiling
+before spilling to disk (no hard total-size cap). Both shapes protect
+memory; the choice between "reject large uploads outright" and "stream
+large uploads to disk" is implementer's call given the task. Ephemeral
+poke surfaces rarely need to accept more than tens of MiB. Whatever the
+mechanism, returning `413` on a hard-cap rejection is the expected
+status.
 
 Body carries:
 
