@@ -21,11 +21,13 @@ The repo root *is* the skill. Claude loads `SKILL.md` and what it explicitly ref
 | `references/pattern.md` | The substrate-agnostic pattern. The contract every implementation must preserve. |
 | `references/wire-example.md` | One concrete wire (HTTP + JSON over localhost). Illustrative, not normative. |
 | `references/lifecycle.md` | The mechanism space for autonomous draining (Monitor, polling, fs watch, push webhook). |
-| `references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. |
+| `references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. Concrete CSRF + URL-unguessability notes from the worker reference. |
+| `references/hosted-example.md` | Cloudflare Worker + KV wire walkthrough — sibling to `wire-example.md`, for the hosted substrate. |
 | `examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `examples/server_test.go` | Tests for the reference server. |
 | `examples/server.py` | Python stdlib reference, mirrors `examples/server.go`. Same wire contract, different substrate — validates that the references describe the pattern, not the Go syntax. |
 | `examples/test_server.py` | Tests for the Python reference. |
+| `examples/worker/` | Cloudflare Worker + KV reference for the hosted substrate. Deploy with `cd examples/worker && npm install && wrangler deploy`. See `references/hosted-example.md` for the wire and `examples/worker/README.md` for the deploy story. |
 
 **For humans** (not loaded by Claude):
 
