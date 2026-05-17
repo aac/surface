@@ -62,7 +62,11 @@ in `pattern.md`.
 
 ## Submission semantics
 
-Two content types on `POST /submit`:
+Two content types on `POST /submit`: `application/json` and
+`multipart/form-data`. Plain HTML form POSTs
+(`application/x-www-form-urlencoded`) are intentionally not accepted — HTML
+surfaces should use `fetch` with a JSON body for typed submissions, or
+`FormData` for multipart uploads.
 
 ### `application/json` — typed submissions
 

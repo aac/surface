@@ -717,10 +717,13 @@ Open a Claude Code session in any throwaway directory; confirm the `poke` skill 
 cd ~/Workspace/poke
 
 # write a tiny HTML page
+# Uses fetch+JSON to match the wire contract; plain form POSTs would send
+# application/x-www-form-urlencoded, which the reference server doesn't
+# accept (only application/json and multipart/form-data are wired up).
 cat > /tmp/poke-test.html <<'EOF'
-<html><body><form action="/submit" method="post">
-  <button type="submit" name="id" value="abc">click me</button>
-</form></body></html>
+<html><body>
+  <button onclick="fetch('/submit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:'abc',payload:null})}).then(()=>document.body.textContent='ok')">click me</button>
+</body></html>
 EOF
 
 # initial state
