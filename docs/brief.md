@@ -53,7 +53,7 @@ That's what `poke` is.
 |---|---|
 | "Should I rename `fooBar` to `foo_bar`?" (user is in chat) | chat reply |
 | "Which of these 18 generated icon candidates is best?" | poke |
-| "Approve this deploy to prod" (user is on their phone, away from chat) | poke (link via push notification) |
+| "Approve this batch of suggested commits before I push" (user is on their phone, away from chat) | poke (link via push notification) |
 | "Upload the receipt and I'll log the expense" | poke |
 | "Sketch the layout you want and I'll build it" | poke |
 | "Did you mean Slack or Discord?" (user is in chat) | chat reply |
@@ -93,7 +93,7 @@ A schematic flow (the wire and lifecycle details are described concretely below)
    the selected refactors, and continues the task. Tears down the surface.
 ```
 
-The surface lifetime is task-shaped — minutes, maybe hours. State is local. Nothing persists beyond the task.
+The surface lifetime is task-shaped. State is local. Nothing persists beyond the task.
 
 ## The pattern (substrate-agnostic)
 
@@ -106,6 +106,8 @@ Any implementation must preserve:
 5. **Surfaces are ephemeral.** Each poke is task-shaped, generated for the moment, and discarded after.
 
 Anything else — state shape, wire format, server choice, lifecycle mechanism, surface styling — is implementation.
+
+**Beyond the pattern (agent responsibilities).** Operational concerns — concurrent pokes, port choice, server teardown, idempotency, user-never-clicks timeouts, browser caching, state file lifecycle — are agent responsibilities; the pattern doesn't prescribe. An agent running multiple pokes in parallel may launch separate servers, serve multiple surfaces on one server, or combine the asks into one page — all valid given context.
 
 ## The wire example (HTTP + JSON)
 
@@ -144,9 +146,9 @@ GET  /static/<path>       optional static assets if the agent's HTML references 
 - For forms, the submitting affordance is the button; selected form-field values are carried in the `payload` (e.g., `{"selected": ["abc123", "def456"]}`).
 - File uploads use `multipart/form-data`; the server stores files under a path the agent can read and the emitted stdout line includes the path(s).
 
-**Session ID:** ULID generated when the poke session starts; scopes the affordances of one poke from another's. Per-session.
+**Session ID:** an opaque identifier generated when the poke session starts; scopes one poke's affordances from another's. Per-session.
 
-**Affordance ID format:** the v0 wire example uses ULIDs. Agents implementing alternative wires can use any opaque identifier as long as collisions are scoped per session.
+**Affordance ID format:** opaque, scoped per session. The reference Go server uses `crypto/rand` hex to stay stdlib-only; agents implementing alternative wires choose whatever fits (ULIDs, UUIDs, anything).
 
 The reference `examples/server.go` implements this wire in ~80 lines.
 
@@ -166,16 +168,17 @@ The skill teaches the *space*; the agent picks based on environment and the late
 `SKILL.md` sections, in order:
 
 1. **What poke is** — pattern statement, defining property, required mechanism (autonomous draining), useful consequences.
-2. **When to use / when not to use** — the situational guidance above, plus the prompt-injection caution.
+2. **When to use / when not to use** — the situational guidance above. Cross-references section 8 for security considerations.
 3. **The pattern** → `references/pattern.md` — substrate-agnostic definition (the five points above).
 4. **The wire example** → `references/wire-example.md` — the HTTP+JSON walkthrough.
 5. **Lifecycle mechanisms** → `references/lifecycle.md` — the mechanism space and notes on picking.
 6. **Working with the user** *(inline; no reference file)* — the collaborative norm below.
 7. **Reference example** → `examples/server.go` — pointer to the Go reference server.
+8. **Security considerations** → `references/security.md` — deployment-specific concerns the agent should think through (loopback default, CSRF, link unguessability, auth requirements for hosted contexts, free-field injection).
 
 ## Working with the user
 
-**If the skill is invoked in an interactive session**, the agent briefly checks with the user before building: what kind of surface, what server setup, any specific preferences. The skill surfaces choices; the user makes them.
+**If the skill is invoked in an interactive session**, the agent briefly checks with the user about *setup decisions* before building — what kind of surface, what server setup, any specific preferences. This is about setup, not the interaction itself; poke is being used precisely because the *interaction* is better in a structured UI surface than freeform chat. A short setup conversation just makes sure the right shape gets built. The skill surfaces choices; the user makes them.
 
 **If the skill is invoked autonomously** (cron, /loop, dispatched agent, scheduled task), the agent proceeds without solicitation. Autonomous agents don't have a user to ask.
 
@@ -183,15 +186,13 @@ The skill teaches *what* to consider, not *who* to ask.
 
 ## Security considerations
 
-v0 is low-risk by construction: submissions are structured (button clicks, named form fields with known shapes), and the typical use is private and local (single user, localhost, no public exposure). Prompt-injection risk is mitigated mostly by the structured-response shape — the agent's reaction is driven by the matched intent ID, not by free interpretation of submission text.
+Security thinking ships as a dedicated reference (`references/security.md`) so SKILL.md stays focused on the pattern. The reference covers:
 
-This changes as `poke` grows. Three threat shapes worth naming:
+- **Free-field content as injection vector.** Submission envelopes are typed; the *content* of free-field inputs (text, images, files) is user-controlled and must be treated as untrusted before going back to an LLM.
+- **Deployment posture.** v0 defaults to loopback bind for the reference server; non-local deployments (LAN, tunneled, hosted) need CSRF, link unguessability, and auth appropriate to the context.
+- **Cross-tool replay.** Per-session ID scope (assuming fresh state per session) mitigates intra-machine replay; hosted contexts need more.
 
-- **Unstructured input** (free text, images, file uploads) is an injection vector — submissions arrive in known *shape* but the *content* of free fields is user-controlled. Agents must treat free-field content as untrusted before passing it back to an LLM.
-- **Hosted / public surfaces** introduce auth and link-lifecycle concerns (link expiration, one-time-use, magic-link / session, replay protection) that v0 does not address.
-- **Cross-tool replay.** A submission designed for one agent's intent map could be replayed against another if IDs collide. v0's per-session ID scope mitigates this *assuming each session starts with a fresh state file*; future hosted versions need to be careful.
-
-The skill includes a one-paragraph caution in section 2. Substantive treatment — sanitization patterns, hosted auth, link lifecycle — is future work.
+v0 trusts that agents using poke will think about security in their own context. The reference's job is to remind, not to dictate. Substantive treatment (sanitization patterns, hosted auth, link lifecycle) is future work.
 
 ## Reference example
 
@@ -217,7 +218,8 @@ poke/
 ├── references/               # shipped: lazy-loaded sections
 │   ├── pattern.md
 │   ├── wire-example.md
-│   └── lifecycle.md
+│   ├── lifecycle.md
+│   └── security.md
 ├── examples/                 # shipped: reference code
 │   └── server.go
 ├── docs/                     # dev artifacts (not loaded by skill)
