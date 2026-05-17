@@ -163,6 +163,77 @@ What this shape buys you and what it costs:
 - **Costs:** consumption state lives on the consumer (which files have been processed). The server doesn't know whether a submission has been drained — it just keeps producing. The agent must delete (or move) each file after handling, or the drain re-fires on next watch.
 - **Atomic-write matters:** the reference server uses temp-file + rename so a watcher never sees a half-written JSON. Custom servers writing into the drop-directory should do the same; `close_write` (inotify) or `IN_MOVED_TO` semantics avoid firing on partial writes.
 
+## Worked example: poll-drain against the hosted wire
+
+When the substrate is remote (Cloudflare Worker + KV, a Vercel function over
+Postgres, anything where the agent can't tail a stdout stream), the natural
+drain is a pull on an endpoint the surface exposes. The hosted reference at
+`examples/worker/` ships `GET /<session_id>/poll?since=<unix-ms>` for exactly
+this — see `hosted-example.md` for the wire-level contract.
+
+The agent owns the cursor (`since`) and the cadence:
+
+```
+# 1. Provision the session via the worker's agent-only /_provision endpoint.
+#    Returns the session id, the public surface URL, and the CSRF token.
+resp = http_post(
+    BASE + "/_provision",
+    headers = { "authorization": "Bearer " + PROVISION_TOKEN,
+                "content-type":  "application/json" },
+    body    = json_encode({
+        "html":        agent_rendered_html,
+        "affordances": { "approve": { "label": "Approve",
+                                       "intent": "approve_pr_42" } },
+    }),
+)
+session    = json_parse(resp.body)
+surface    = session["url"]            # https://.../<session_id>
+session_id = session["session_id"]
+
+# 2. Deliver the URL to the user via whatever outbound channel applies.
+deliver(surface)
+
+# 3. Drain by polling /poll. Cursor starts at 0; advance to the largest
+#    at_ms seen on each pass.
+cursor   = 0
+interval = 2  # seconds; pick based on task latency tolerance
+
+while True:
+    poll = http_get(BASE + "/" + session_id + "/poll?since=" + str(cursor))
+    body = json_parse(poll.body)
+    for entry in body["submissions"]:
+        affordance_id = entry["id"]
+        payload       = entry["payload"]
+        intent        = AFFORDANCES.get(affordance_id, {}).get("intent")
+        react(intent, payload)
+        if entry["at_ms"] > cursor:
+            cursor = entry["at_ms"]
+        if is_terminal(intent, payload):
+            cleanup(session_id)        # delete the KV state
+            return
+    sleep(interval)
+```
+
+What this *doesn't* prescribe, on purpose:
+
+- **Cadence (`interval`).** Sub-second for an interactive session where the
+  user is sitting at the URL; tens of seconds for an async approval gate;
+  longer still for "check once an hour" workflows. Match the polling
+  period to the task's latency tolerance — and to the platform's read
+  budget (Cloudflare's free tier KV is 100k reads/day).
+- **Cleanup.** When the session is terminal, the agent decides whether to
+  delete the KV state immediately (tight) or let a sweeper Worker reap
+  expired sessions (loose). The pattern doesn't pick.
+- **Back-off.** Quota errors, rate limits, network blips — all handled by
+  the agent's own retry policy. The drain loop is not the right place for
+  bespoke exponential back-off; an outer supervisor that restarts the
+  drain on transient failure is usually the cleaner shape.
+
+Push (a webhook from the surface to an agent-owned endpoint) is the
+alternative shape and is equally valid when the agent is addressable. The
+worker reference doesn't ship a webhook variant; adding one is a matter
+of wiring `fetch` on submit instead of a KV append.
+
 ## Cadence guidance
 
 Push-driven mechanisms (Monitor, filesystem watch, push webhook) deliver events at event-time — the agent reacts as soon as a submission lands. No cadence to tune.
