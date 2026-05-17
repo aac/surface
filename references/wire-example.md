@@ -36,10 +36,12 @@ The schema is locked:
     "<id>": { "label": "<string>", "intent": <any JSON> }
   },
   "submissions": [
-    { "id": "<affordance id>", "payload": <any JSON or null>, "at": "<RFC3339Nano timestamp>" }
+    { "id": "<affordance id>", "payload": <any JSON or null>, "at": "<RFC3339 timestamp, precision implementation-defined (microseconds OK; nanoseconds preferred for Go)>" }
   ]
 }
 ```
+
+JSON field ordering within objects is implementation-defined and not part of the contract. Consumers should parse by key, not position.
 
 Field roles:
 
@@ -52,8 +54,9 @@ Field roles:
   affordance is submitted (a string tag, a structured plan, a tool call, any
   JSON). Opaque to the wire.
 - **`submissions`** — append-only log of what has arrived. Each entry pins the
-  submitting affordance ID, the payload the user sent, and an RFC3339Nano
-  timestamp.
+  submitting affordance ID, the payload the user sent, and an RFC3339
+  timestamp (precision implementation-defined — microseconds OK; nanoseconds
+  preferred for Go).
 
 The agent owns this file. The server's job on a submission is to append the
 new entry and write atomically; everything else (rotating, deleting, archiving,
@@ -79,8 +82,8 @@ Body:
 The server:
 
 1. Decodes the body.
-2. Appends `{ id, payload, at: <RFC3339Nano now> }` to `submissions` in the
-   state file (atomic write under a mutex).
+2. Appends `{ id, payload, at: <RFC3339 now, precision implementation-defined> }`
+   to `submissions` in the state file (atomic write under a mutex).
 3. Emits exactly one line to stdout in the locked format:
 
 ```

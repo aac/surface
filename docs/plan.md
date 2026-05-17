@@ -69,10 +69,12 @@ These are normative for v0 — Task 6's tests assert them, Task 3 describes them
     "<id>": { "label": "<string>", "intent": <any JSON> }
   },
   "submissions": [
-    { "id": "<affordance id>", "payload": <any JSON or null>, "at": "<RFC3339Nano timestamp>" }
+    { "id": "<affordance id>", "payload": <any JSON or null>, "at": "<RFC3339 timestamp, precision implementation-defined (microseconds OK; nanoseconds preferred for Go)>" }
   ]
 }
 ```
+
+JSON field ordering within objects is implementation-defined and not part of the contract. Consumers should parse by key, not position.
 
 **Stdout submission format:** one line per submission, exactly:
 
