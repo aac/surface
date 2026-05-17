@@ -85,6 +85,8 @@ A few rules govern how the surface itself is shaped.
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4 in roughly 80 lines of stdlib HTTP. Read it for orientation, then re-implement in whatever substrate fits the environment. Go is convenient because it bootstraps v1's bundled binary and the stdlib is sufficient; the pattern doesn't require any particular language.
 
+**The substrate-agnostic test.** If you're porting poke to another substrate, the question is "can I build a working poke-like server from the docs in §3–§5 and `references/`?" — not "does my impl match the Go (or Python, or Node) reference byte-for-byte?" Operational details (port, watchdog, error statuses, body-cap policy, Cache-Control specifics) should be chosen on what's idiomatic for the target substrate. Cross-impl divergence on those details is signal that the pattern is being independently derived from the docs; cross-impl convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name, timestamp format) is signal that the docs nailed down the right things. Both are validation. The wrong test is comparing impl-to-impl as a conformance bar.
+
 ## 8. Security considerations
 
 Defaults are low-risk (loopback bind, structured envelopes, ephemeral state). Things worth thinking through scale with how far the surface travels — free-field content as injection vector, CSRF on non-loopback deployments, URL unguessability, auth for hosted contexts, cross-tool replay.

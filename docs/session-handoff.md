@@ -45,8 +45,9 @@ Across the three references-only ports: ports differ (8000 / 5173 / 5173), watch
 
 ## Open backlog
 
-**act queue — one ticket:**
-- **act-6fb6** (p2): methodology — update SKILL.md / brief.md / orchestrate playbook to frame the substrate-agnostic test as "can build a working poke-like thing from the docs alone," not "byte-identical interop with existing siblings." Important before any future references-only ports; not blocking otherwise. Touches foreground strategic content, so dispatch wants explicit Andrew sign-off.
+**act queue — empty.**
+
+(Note for future sessions: the methodology correction landed in SKILL.md §7, `docs/brief.md` §"The pattern (substrate-agnostic)", and CLAUDE.md "Non-prescriptive skill content." Any future references-only port should be dispatched with that framing — no sibling impls in context, operational divergence is signal not failure, cross-impl byte-equivalence informational only.)
 
 **asks for Andrew — two:**
 - **ask-48db** (normal): Decide on R2-backed multipart for the Cloudflare worker. Free-tier sufficient for dogfood; binding choice and worker quota implications are the decisions.
