@@ -62,23 +62,25 @@ const (
 	drainFS                      // write per-submission file under <state-dir>/submissions/
 )
 
-// Handler implements the poke wire (GET /, POST /submit, GET /static/*).
+// handler implements the poke wire (GET /, POST /submit). The /static/<path>
+// route described in references/wire-example.md is marked Optional there; this
+// reference server omits it since the canonical surface is one HTML doc.
 //
 // All mutations of the state file are serialized through mu — the wire is
 // designed for low-throughput, single-surface use, so a coarse lock is fine
 // and keeps the atomic-write-and-emit dance simple.
-type Handler struct {
+type handler struct {
 	statePath string
 	htmlPath  string
 	drain     drainMode
 	mu        sync.Mutex
 }
 
-func newHandler(statePath, htmlPath string) *Handler {
-	return &Handler{statePath: statePath, htmlPath: htmlPath, drain: drainStdout}
+func newHandler(statePath, htmlPath string) *handler {
+	return &handler{statePath: statePath, htmlPath: htmlPath, drain: drainStdout}
 }
 
-func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/":
 		// no-store guards against stale-tab hazard: if a previous poke left
@@ -95,7 +97,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
+func (h *handler) submit(w http.ResponseWriter, r *http.Request) {
 	ct := r.Header.Get("Content-Type")
 	// Strip parameters (e.g. "multipart/form-data; boundary=...").
 	if i := strings.Index(ct, ";"); i >= 0 {
@@ -113,7 +115,7 @@ func (h *Handler) submit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *Handler) submitJSON(w http.ResponseWriter, r *http.Request) {
+func (h *handler) submitJSON(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID      string          `json:"id"`
 		Payload json.RawMessage `json:"payload"`
@@ -145,7 +147,7 @@ func (h *Handler) submitJSON(w http.ResponseWriter, r *http.Request) {
 // The drain-side effect depends on the configured mode:
 //   - stdout: a single `SUBMIT <id> <payload-json>` line on stdout
 //   - fs: a per-submission file under <state-dir>/submissions/
-func (h *Handler) record(id string, payload json.RawMessage) error {
+func (h *handler) record(id string, payload json.RawMessage) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -177,7 +179,7 @@ func (h *Handler) record(id string, payload json.RawMessage) error {
 		if err := h.writeFSDrainFile(entry); err != nil {
 			return fmt.Errorf("write drain file: %w", err)
 		}
-	default:
+	case drainStdout:
 		// Per the shared contract, stdout carries one line per submission:
 		//   SUBMIT <id> <payload-json>
 		// Payload is re-serialized as compact JSON on one line.
@@ -197,7 +199,7 @@ func (h *Handler) record(id string, payload json.RawMessage) error {
 //
 // The directory is created on demand (0o755) — the server owns producing the
 // drain stream; consuming and cleaning up files is the draining agent's job.
-func (h *Handler) writeFSDrainFile(entry submission) error {
+func (h *handler) writeFSDrainFile(entry submission) error {
 	dir := filepath.Join(filepath.Dir(h.statePath), "submissions")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
@@ -250,7 +252,11 @@ func atomicWrite(path string, data []byte) error {
 		os.Remove(tmpName)
 		return err
 	}
-	return os.Rename(tmpName, path)
+	if err := os.Rename(tmpName, path); err != nil {
+		os.Remove(tmpName)
+		return err
+	}
+	return nil
 }
 
 func compactJSON(raw json.RawMessage) (string, error) {
@@ -266,7 +272,7 @@ func compactJSON(raw json.RawMessage) (string, error) {
 // reference server's ephemeral-surface use case.
 const maxMultipartMemory = 32 << 20 // 32 MiB
 
-func (h *Handler) submitMultipart(w http.ResponseWriter, r *http.Request) {
+func (h *handler) submitMultipart(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
 		http.Error(w, "invalid multipart: "+err.Error(), http.StatusBadRequest)
 		return

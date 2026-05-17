@@ -103,6 +103,63 @@ func TestSubmitAppendsStateAndEmitsStdout(t *testing.T) {
 	}
 }
 
+// TestSubmitRejectsUnsupportedContentType pins the wire-spec requirement that
+// non-JSON, non-multipart submissions are rejected with a 4xx — the Go, Node,
+// and Rust references all converged on 415 Unsupported Media Type.
+func TestSubmitRejectsUnsupportedContentType(t *testing.T) {
+	stateFile, _ := os.CreateTemp("", "poke-state-*.json")
+	defer os.Remove(stateFile.Name())
+	stateFile.WriteString(`{"session_id":"test","affordances":{},"submissions":[]}`)
+	stateFile.Close()
+
+	htmlFile, _ := os.CreateTemp("", "poke-html-*.html")
+	defer os.Remove(htmlFile.Name())
+	htmlFile.Close()
+
+	handler := newHandler(stateFile.Name(), htmlFile.Name())
+	req := httptest.NewRequest(http.MethodPost, "/submit",
+		strings.NewReader("id=abc"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnsupportedMediaType)
+	}
+}
+
+// TestSubmitJSONMissingIDReturns400 pins the wire-spec requirement that a
+// JSON submission without an id is rejected with 400 — without this, the
+// state file would accumulate entries whose affordance ID is the empty
+// string, which is meaningless to the agent's intent map.
+func TestSubmitJSONMissingIDReturns400(t *testing.T) {
+	stateFile, _ := os.CreateTemp("", "poke-state-*.json")
+	defer os.Remove(stateFile.Name())
+	stateFile.WriteString(`{"session_id":"test","affordances":{},"submissions":[]}`)
+	stateFile.Close()
+
+	htmlFile, _ := os.CreateTemp("", "poke-html-*.html")
+	defer os.Remove(htmlFile.Name())
+	htmlFile.Close()
+
+	handler := newHandler(stateFile.Name(), htmlFile.Name())
+	req := httptest.NewRequest(http.MethodPost, "/submit",
+		strings.NewReader(`{"payload":null}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+
+	// And nothing should have been appended to state.
+	data, _ := os.ReadFile(stateFile.Name())
+	if strings.Contains(string(data), `"id"`) && strings.Contains(string(data), `"submissions":[{`) {
+		t.Fatalf("state file recorded an invalid submission: %s", string(data))
+	}
+}
+
 // TestWatchParentDeathTriggersShutdown verifies the parent-death watchdog
 // calls Shutdown on the server when os.Getppid() no longer matches the
 // PID we recorded at startup. We can't kill the real parent in a test, so
@@ -345,10 +402,12 @@ func TestSubmitWritesFsDrainFileWhenFsMode(t *testing.T) {
 	}
 }
 
-// TestSubmitFsModeIsolatesConcurrentSubmissions asserts the per-submission
-// filename scheme doesn't collide when two submissions land in quick
-// succession — the unix-ns prefix should give them distinct names.
-func TestSubmitFsModeIsolatesConcurrentSubmissions(t *testing.T) {
+// TestSubmitFsModeFilenamesDoNotCollide asserts the per-submission filename
+// scheme doesn't collide when several submissions land back-to-back — the
+// unix-ns prefix should give them distinct names. Submissions are issued
+// sequentially under the handler's own mutex; this isn't a concurrency test,
+// it's a filename-uniqueness test on the timestamp resolution.
+func TestSubmitFsModeFilenamesDoNotCollide(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "state.json")
 	if err := os.WriteFile(statePath,
