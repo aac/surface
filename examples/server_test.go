@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -245,5 +246,151 @@ func TestMultipartUploadStoresFileAndEmitsStdout(t *testing.T) {
 	}
 	if !strings.Contains(string(state), `"files":`) {
 		t.Fatalf("state file payload missing files: %s", state)
+	}
+}
+
+// TestSubmitWritesFsDrainFileWhenFsMode exercises the --drain-mode=fs path:
+// the server should write one JSON file per submission under
+// <state-dir>/submissions/, containing the same envelope that landed in
+// state. It should NOT emit a SUBMIT line on stdout in fs mode — the drain
+// channel is the filesystem.
+func TestSubmitWritesFsDrainFileWhenFsMode(t *testing.T) {
+	// Use a fresh tmpdir so we can assert on the entire submissions/ contents.
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(statePath,
+		[]byte(`{"session_id":"test","affordances":{"abc":{"label":"Yes","intent":"yes"}},"submissions":[]}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	htmlPath := filepath.Join(dir, "surface.html")
+	if err := os.WriteFile(htmlPath, []byte("<html></html>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Capture stdout so we can also assert no SUBMIT line is emitted in fs mode.
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	handler := newHandler(statePath, htmlPath)
+	handler.drain = drainFS
+
+	req := httptest.NewRequest(http.MethodPost, "/submit",
+		strings.NewReader(`{"id":"abc","payload":{"value":42}}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	w.Close()
+	stdout, _ := io.ReadAll(r)
+	if strings.Contains(string(stdout), "SUBMIT ") {
+		t.Fatalf("fs-mode emitted a SUBMIT stdout line: %q", string(stdout))
+	}
+
+	// Exactly one file should land under <state-dir>/submissions/.
+	subDir := filepath.Join(dir, "submissions")
+	entries, err := os.ReadDir(subDir)
+	if err != nil {
+		t.Fatalf("read submissions dir: %v", err)
+	}
+	if len(entries) != 1 {
+		var names []string
+		for _, e := range entries {
+			names = append(names, e.Name())
+		}
+		t.Fatalf("expected exactly 1 drain file, got %d: %v", len(entries), names)
+	}
+	name := entries[0].Name()
+	// Name shape: <unix-ns>-<id>.json. We don't pin the exact ns value,
+	// but we do assert the id suffix is present so consumers can grep.
+	if !strings.HasSuffix(name, "-abc.json") {
+		t.Fatalf("drain filename did not match <ns>-<id>.json shape: %q", name)
+	}
+
+	body, err := os.ReadFile(filepath.Join(subDir, name))
+	if err != nil {
+		t.Fatalf("read drain file: %v", err)
+	}
+	var got submission
+	if err := json.Unmarshal(body, &got); err != nil {
+		t.Fatalf("drain file is not valid submission JSON: %v (%q)", err, string(body))
+	}
+	if got.ID != "abc" {
+		t.Fatalf("drain file id = %q, want %q", got.ID, "abc")
+	}
+	if got.At == "" {
+		t.Fatalf("drain file missing at timestamp: %q", string(body))
+	}
+	var payload struct {
+		Value int `json:"value"`
+	}
+	if err := json.Unmarshal(got.Payload, &payload); err != nil {
+		t.Fatalf("drain file payload not valid JSON: %v", err)
+	}
+	if payload.Value != 42 {
+		t.Fatalf("drain file payload.value = %d, want 42", payload.Value)
+	}
+
+	// And state should also have recorded the submission — fs mode replaces
+	// the drain side-channel, not the state-append.
+	stateRaw, _ := os.ReadFile(statePath)
+	if !strings.Contains(string(stateRaw), `"id":"abc"`) {
+		t.Fatalf("state file did not record submission: %s", stateRaw)
+	}
+}
+
+// TestSubmitFsModeIsolatesConcurrentSubmissions asserts the per-submission
+// filename scheme doesn't collide when two submissions land in quick
+// succession — the unix-ns prefix should give them distinct names.
+func TestSubmitFsModeIsolatesConcurrentSubmissions(t *testing.T) {
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(statePath,
+		[]byte(`{"session_id":"test","affordances":{"abc":{"label":"Yes","intent":"yes"}},"submissions":[]}`),
+		0o644); err != nil {
+		t.Fatal(err)
+	}
+	htmlPath := filepath.Join(dir, "surface.html")
+	_ = os.WriteFile(htmlPath, []byte("<html></html>"), 0o644)
+
+	// silence stdout (we asserted on it in the previous test)
+	oldStdout := os.Stdout
+	_, w, _ := os.Pipe()
+	os.Stdout = w
+	t.Cleanup(func() { os.Stdout = oldStdout; w.Close() })
+
+	handler := newHandler(statePath, htmlPath)
+	handler.drain = drainFS
+
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/submit",
+			strings.NewReader(`{"id":"abc","payload":null}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("submission %d status = %d", i, rec.Code)
+		}
+	}
+
+	entries, err := os.ReadDir(filepath.Join(dir, "submissions"))
+	if err != nil {
+		t.Fatalf("read submissions dir: %v", err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 drain files, got %d", len(entries))
+	}
+	seen := map[string]bool{}
+	for _, e := range entries {
+		if seen[e.Name()] {
+			t.Fatalf("duplicate drain filename: %q", e.Name())
+		}
+		seen[e.Name()] = true
 	}
 }

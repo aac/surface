@@ -3,10 +3,19 @@
 //
 // Usage:
 //
-//	go run examples/server.go --state /tmp/poke-state.json --html /tmp/poke.html [--port 5173] [--bind 127.0.0.1]
+//	go run examples/server.go --state /tmp/poke-state.json --html /tmp/poke.html [--port 5173] [--bind 127.0.0.1] [--drain-mode stdout|fs]
 //
-// One canonical wire for localhost use. Loopback bind by default. Emits one
-// line per submission to stdout: `SUBMIT <id> <payload-json>`.
+// One canonical wire for localhost use. Loopback bind by default.
+//
+// Drain modes (how the agent learns about new submissions; see
+// references/lifecycle.md for the full mechanism space):
+//
+//   - stdout (default): emits one line per submission to stdout in the form
+//     `SUBMIT <id> <payload-json>`. Suits Monitor-on-background-process.
+//   - fs: writes one file per submission under <state-dir>/submissions/
+//     named `<unix-ns>-<id>.json`. Suits fswatch / inotify drains, polling
+//     directory listings, or any environment where the agent can't tail
+//     the server's stdout.
 package main
 
 import (
@@ -43,6 +52,16 @@ type submission struct {
 	At      string          `json:"at"`
 }
 
+// drainMode selects how the server signals each newly-recorded submission
+// to its draining agent. See package doc and references/lifecycle.md for the
+// full mechanism space.
+type drainMode int
+
+const (
+	drainStdout drainMode = iota // emit `SUBMIT <id> <payload-json>` to stdout
+	drainFS                      // write per-submission file under <state-dir>/submissions/
+)
+
 // Handler implements the poke wire (GET /, POST /submit, GET /static/*).
 //
 // All mutations of the state file are serialized through mu — the wire is
@@ -51,11 +70,12 @@ type submission struct {
 type Handler struct {
 	statePath string
 	htmlPath  string
+	drain     drainMode
 	mu        sync.Mutex
 }
 
 func newHandler(statePath, htmlPath string) *Handler {
-	return &Handler{statePath: statePath, htmlPath: htmlPath}
+	return &Handler{statePath: statePath, htmlPath: htmlPath, drain: drainStdout}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -118,9 +138,13 @@ func (h *Handler) submitJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// record appends a submission to the state file and emits the SUBMIT stdout
-// line atomically. The mutex covers the read-modify-write of the state file
-// and the stdout write so concurrent submissions can't interleave.
+// record appends a submission to the state file and signals the draining
+// agent atomically. The mutex covers the read-modify-write of the state file
+// and the drain-side effect so concurrent submissions can't interleave.
+//
+// The drain-side effect depends on the configured mode:
+//   - stdout: a single `SUBMIT <id> <payload-json>` line on stdout
+//   - fs: a per-submission file under <state-dir>/submissions/
 func (h *Handler) record(id string, payload json.RawMessage) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -133,11 +157,12 @@ func (h *Handler) record(id string, payload json.RawMessage) error {
 	if err := json.Unmarshal(raw, &st); err != nil {
 		return fmt.Errorf("parse state: %w", err)
 	}
-	st.Submissions = append(st.Submissions, submission{
+	entry := submission{
 		ID:      id,
 		Payload: payload,
 		At:      time.Now().UTC().Format(time.RFC3339Nano),
-	})
+	}
+	st.Submissions = append(st.Submissions, entry)
 
 	out, err := json.Marshal(&st)
 	if err != nil {
@@ -147,15 +172,66 @@ func (h *Handler) record(id string, payload json.RawMessage) error {
 		return fmt.Errorf("write state: %w", err)
 	}
 
-	// Per the shared contract, stdout carries one line per submission:
-	//   SUBMIT <id> <payload-json>
-	// Payload is re-serialized as compact JSON on one line.
-	compact, err := compactJSON(payload)
-	if err != nil {
-		return fmt.Errorf("compact payload: %w", err)
+	switch h.drain {
+	case drainFS:
+		if err := h.writeFSDrainFile(entry); err != nil {
+			return fmt.Errorf("write drain file: %w", err)
+		}
+	default:
+		// Per the shared contract, stdout carries one line per submission:
+		//   SUBMIT <id> <payload-json>
+		// Payload is re-serialized as compact JSON on one line.
+		compact, err := compactJSON(payload)
+		if err != nil {
+			return fmt.Errorf("compact payload: %w", err)
+		}
+		fmt.Fprintf(os.Stdout, "SUBMIT %s %s\n", id, compact)
 	}
-	fmt.Fprintf(os.Stdout, "SUBMIT %s %s\n", id, compact)
 	return nil
+}
+
+// writeFSDrainFile lands one submission as a single file under
+// <state-dir>/submissions/. The filename prefix is the wall-clock unix-nanos
+// so directory listings sort in arrival order naturally; the id is suffixed
+// so a human (or a debugger) can map files to affordances at a glance.
+//
+// The directory is created on demand (0o755) — the server owns producing the
+// drain stream; consuming and cleaning up files is the draining agent's job.
+func (h *Handler) writeFSDrainFile(entry submission) error {
+	dir := filepath.Join(filepath.Dir(h.statePath), "submissions")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	body, err := json.Marshal(entry)
+	if err != nil {
+		return err
+	}
+	// Atomic write so a watching agent never reads a half-written file.
+	name := fmt.Sprintf("%d-%s.json", time.Now().UTC().UnixNano(), sanitizeIDForPath(entry.ID))
+	return atomicWrite(filepath.Join(dir, name), body)
+}
+
+// sanitizeIDForPath keeps the filename safe for any filesystem the server
+// might land on: alphanumerics and a small set of punctuation pass through;
+// anything else collapses to `_`. The affordance id is opaque to the wire,
+// so this is purely cosmetic — the id inside the file body is authoritative.
+func sanitizeIDForPath(id string) string {
+	if id == "" {
+		return "id"
+	}
+	var b strings.Builder
+	b.Grow(len(id))
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-', r == '_', r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('_')
+		}
+	}
+	return b.String()
 }
 
 func atomicWrite(path string, data []byte) error {
@@ -299,16 +375,27 @@ func main() {
 	html := flag.String("html", "", "path to HTML to serve at /")
 	port := flag.Int("port", 5173, "TCP port to listen on")
 	bind := flag.String("bind", "127.0.0.1", "address to bind (loopback by default)")
+	drain := flag.String("drain-mode", "stdout", "submission drain channel: stdout|fs")
 	flag.Parse()
 
 	if *state == "" || *html == "" {
-		fmt.Fprintln(os.Stderr, "usage: server --state <path> --html <path> [--port N] [--bind addr]")
+		fmt.Fprintln(os.Stderr, "usage: server --state <path> --html <path> [--port N] [--bind addr] [--drain-mode stdout|fs]")
 		os.Exit(2)
 	}
 
 	handler := newHandler(*state, *html)
+	switch strings.ToLower(*drain) {
+	case "stdout", "":
+		handler.drain = drainStdout
+	case "fs":
+		handler.drain = drainFS
+	default:
+		fmt.Fprintf(os.Stderr, "poke: unknown --drain-mode %q (want stdout|fs)\n", *drain)
+		os.Exit(2)
+	}
+
 	addr := fmt.Sprintf("%s:%d", *bind, *port)
-	fmt.Fprintf(os.Stderr, "poke: serving %s on http://%s/ (state=%s)\n", *html, addr, *state)
+	fmt.Fprintf(os.Stderr, "poke: serving %s on http://%s/ (state=%s drain=%s)\n", *html, addr, *state, *drain)
 
 	srv := &http.Server{Addr: addr, Handler: handler}
 

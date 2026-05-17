@@ -22,7 +22,7 @@ The repo root *is* the skill. Claude loads `SKILL.md` and what it explicitly ref
 | `references/wire-example.md` | One concrete wire (HTTP + JSON over localhost). Illustrative, not normative. |
 | `references/lifecycle.md` | The mechanism space for autonomous draining (Monitor, polling, fs watch, push webhook). |
 | `references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. |
-| `examples/server.go` | ~80-line Go reference server implementing the wire example. Read it for orientation, re-implement in whatever fits. |
+| `examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `examples/server_test.go` | Tests for the reference server. |
 
 **For humans** (not loaded by Claude):

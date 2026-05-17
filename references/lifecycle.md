@@ -22,9 +22,9 @@ This is the preferred mechanism for local CC use against the canonical HTTP+JSON
 
 ### Filesystem watch (OS-level: `fswatch` / `inotify`)
 
-- **When it fits:** the surface writes submissions to a file (e.g., appends to the state file) and the agent runs on a host with an OS-level watch primitive available.
-- **What's needed:** a watcher (`fswatch`, `inotifywait`, equivalent) and a deterministic write pattern from the server side so the agent knows what to re-read on each event.
-- **Tradeoffs:** push-driven via the OS without requiring a stream contract from the server, but depends on OS-specific primitives and on the server's write granularity being friendly to watchers (atomic rename, append-only).
+- **When it fits:** the surface writes submissions to a file (e.g., appends to the state file, or drops one file per submission into a directory) and the agent runs on a host with an OS-level watch primitive available.
+- **What's needed:** a watcher (`fswatch`, `inotifywait`, equivalent) and a deterministic write pattern from the server side so the agent knows what to re-read on each event. The reference Go server supports this directly via `--drain-mode fs`: each submission lands as one atomically-written JSON file under `<state-dir>/submissions/`, named `<unix-ns>-<id>.json`. A directory-of-files shape is friendlier to watchers than appending to a single file (one event per submission with no offset bookkeeping); polling the state file is the equally-valid fallback when no OS watch primitive is available.
+- **Tradeoffs:** push-driven via the OS without requiring a stream contract from the server, but depends on OS-specific primitives and on the server's write granularity being friendly to watchers (atomic rename, append-only). The drop-directory keeps a queue on disk — consumption (and cleanup) is the draining agent's responsibility, not the server's.
 
 ### Push webhook into the agent (environment-dependent)
 
@@ -99,6 +99,69 @@ A few notes on what the example *doesn't* prescribe, on purpose:
 - **`react(intent, payload)`** is whatever the task demands — applying refactors, recording an approval, triggering a downstream tool. The intent shape is the agent's own.
 - **`is_terminal(...)`** depends on the surface. A one-shot "Approve / Reject" terminates on first submission; a "check 30 boxes and click Apply" terminates on the Apply click; a long-lived dashboard might never terminate within this loop and instead exit on a sentinel or timeout.
 - **Error handling, malformed lines, server crashes, and the user never clicking** are operational concerns; see "Beyond the pattern" below.
+
+## Worked example: filesystem-watch drain
+
+When stdout isn't the natural channel — the agent isn't a long-lived process tailing the server, the harness lacks a Monitor primitive, or the surface is being served by a sibling process the draining agent didn't spawn — a drop-directory works for the same wire. The reference server takes `--drain-mode fs`: instead of emitting a `SUBMIT` line, it writes one JSON file per submission under `<state-dir>/submissions/`, named `<unix-ns>-<id>.json`, body shape `{"id":"...","payload":..., "at":"..."}` (the same envelope that landed in state).
+
+```
+# 1. Render the surface and persist state, as before.
+state_path = "/tmp/poke-state.json"   # state-dir is /tmp
+html_path  = "/tmp/poke-surface.html"
+write_file(html_path, agent_rendered_html)
+write_file(state_path, { ... })
+
+# 2. Spawn the server in fs-drain mode. No stdout to monitor.
+spawn_detached(
+    "go run ~/Workspace/poke/examples/server.go "
+    "--state " + state_path + " --html " + html_path +
+    " --port 5173 --drain-mode fs"
+)
+
+# 3. Deliver the URL.
+deliver("http://127.0.0.1:5173/")
+
+# 4. Drain by watching the drop-directory. Three valid shapes; pick what fits.
+
+# Shape A — fswatch (macOS / portable), one event per file landing:
+#   fswatch -0 /tmp/submissions | while IFS= read -r -d '' path; do
+#     consume "$path"
+#     rm     "$path"
+#   done
+#
+# Shape B — inotifywait (Linux), reacting to close_write so partial files don't fire:
+#   inotifywait -m -e close_write --format '%w%f' /tmp/submissions |
+#     while read -r path; do
+#       consume "$path"
+#       rm     "$path"
+#     done
+#
+# Shape C — polling (no OS watcher needed, portable everywhere):
+#   while :; do
+#     for f in $(ls /tmp/submissions/*.json 2>/dev/null | sort); do
+#       consume "$f"
+#       rm      "$f"
+#     done
+#     sleep 1
+#   done
+
+# 5. consume() is the agent's react loop: parse file → look up intent → react.
+consume(path):
+    entry  = json_parse(read_file(path))         # {"id","payload","at"}
+    state  = json_parse(read_file(state_path))
+    intent = state["affordances"].get(entry["id"], {}).get("intent")
+    react(intent, entry["payload"])
+
+# 6. Teardown is the same as the Monitor example: kill the server, remove the
+#    state file. The agent also owns clearing leftover files in submissions/
+#    (or just removing the directory) — the server doesn't track consumption.
+```
+
+What this shape buys you and what it costs:
+
+- **Buys:** decouples the draining agent from the spawning process. Any agent (or human) that can read the drop-directory can drain. Submissions queue on disk while no one is watching, so the agent can be invoked later and pick up the backlog.
+- **Costs:** consumption state lives on the consumer (which files have been processed). The server doesn't know whether a submission has been drained — it just keeps producing. The agent must delete (or move) each file after handling, or the drain re-fires on next watch.
+- **Atomic-write matters:** the reference server uses temp-file + rename so a watcher never sees a half-written JSON. Custom servers writing into the drop-directory should do the same; `close_write` (inotify) or `IN_MOVED_TO` semantics avoid firing on partial writes.
 
 ## Cadence guidance
 
