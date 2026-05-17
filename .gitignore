@@ -9,6 +9,10 @@
 # Coverage
 coverage.*
 
+# Python build artifacts
+__pycache__/
+*.pyc
+
 # OS / editor
 .DS_Store
 .idea/

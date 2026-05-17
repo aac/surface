@@ -24,6 +24,8 @@ The repo root *is* the skill. Claude loads `SKILL.md` and what it explicitly ref
 | `references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. |
 | `examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `examples/server_test.go` | Tests for the reference server. |
+| `examples/server.py` | Python stdlib reference, mirrors `examples/server.go`. Same wire contract, different substrate — validates that the references describe the pattern, not the Go syntax. |
+| `examples/test_server.py` | Tests for the Python reference. |
 
 **For humans** (not loaded by Claude):
 
