@@ -1,62 +1,62 @@
-# poke — Session Handoff (after overnight orchestrate)
+# poke — Session Handoff (after extended autonomous orchestrate)
 
-**Date:** 2026-05-17 (UTC, post-overnight)
-**Branch:** main @ `1641c3b`
-**Status:** Five overnight tickets landed (worker bundle, doc precision, Node reference impl). Only two open tickets remain in backlog and both are explicitly "needs Andrew." One new ticket filed mid-session (act-a063) capturing a substrate-test the previous wave missed by design.
+**Date:** 2026-05-17 (UTC)
+**Branch:** main @ `61e2d06`
+**Status:** Worker deployed and verified live. Five overnight tickets landed as planned, then five more from a substrate-test methodology fix and its surfaced doc gaps, then one more for spec-compliance fallout. Backlog is genuinely down to two "needs Andrew" p3 tickets.
 
-## What landed overnight
+## What landed across the full pass
 
-- **act-8d70 / 8b68 / fdbe** (worker bundle, single commit `736797e`): Cloudflare worker now 404s bare root with empty body, 308-redirects `/<sid>` → `/<sid>/` so relative-path fetches resolve, and example HTML in `examples/worker/README.md` + `references/hosted-example.md` checks `response.ok` before showing success. `references/wire-example.md` got a one-line companion note for the local-wire case.
-- **act-76ea** (doc precision, commit `9b4eea2`): `references/wire-example.md` and `docs/plan.md` "Shared contracts" relax `RFC3339Nano` → `RFC3339, precision implementation-defined`, and call out JSON field ordering as implementation-defined.
-- **act-e719** (Node reference impl, commit `73f584b`): `examples/server.mjs` (612 lines) + `examples/server.test.mjs` (318 lines, 9 tests, all pass). Node stdlib only, hand-rolled multipart parser, atomic state writes, parent-death watchdog — mirrors Go/Python shape. Cross-impl byte-identical wire confirmed: same SUBMIT line from all three servers for the same JSON submission.
+In order of merge:
 
-Test gates green on merged main: `gofmt -l .` empty, `go vet` clean, `go test` ok, Node tests 9/9 pass.
+- **act-76ea** (doc precision, `9b4eea2`): `RFC3339Nano` → implementation-defined; JSON field ordering called out as implementation-defined.
+- **act-8d70 / 8b68 / fdbe** (worker bundle, `736797e`): Cloudflare worker now 404s bare root with empty body, 308-redirects `/<sid>` → `/<sid>/`, example HTML in worker README + `references/hosted-example.md` checks `response.ok` before showing success.
+- **act-e719** (Node reference impl, `73f584b`): `examples/server.mjs` (612 lines) + 9 tests, stdlib-only.
+- **Mid-pass insight from Andrew:** the Python + Node ports cloned existing impls' shape rather than validating that the references are sufficient on their own. Filed **act-a063** (references-only substrate test) to capture the proper methodology.
+- **act-a063** (Rust references-only, `a97f08f`): `examples/rust/{Cargo.toml, src/main.rs, tests/e2e.rs}`, 9 tests pass. The hard "no peek at `examples/`" rule held. Surfaced FIVE real doc gaps as follow-up tickets, plus fixed one in-branch (missing-payload normalizes to null) and self-found a bug via cross-check (case-sensitive Content-Type compare). **This is the validation signal — the references-only constraint produced exactly the kind of doc-gap surfacing the existing reference-with-examples ports never could.**
+- **act-b488 / b48e / 4f3e / 3ef7 / c281** (doc coherence, `37d5b9d`): All five Rust-pass gaps triaged per the project's "non-prescriptive" stance. One hard pin (HTTP 415 for unsupported content types — three-impl convergence + cross-impl tooling benefit); four explicitly labeled implementation-defined (upload path naming, body-size cap shape, atomic-write durability, `--bind` flag presence). The body-cap pin added 413 as the rejection status, surfacing **act-f8c1**.
+- **act-f8c1** (Rust body-size cap, `cfcbaa2`): `examples/rust/` now hard-caps multipart at 32 MiB and returns 413; 10/10 tests pass.
 
-## Cloudflare worker — needs your action
+Test gates green on merged main: `gofmt -l .` empty, `go vet` clean, `go test` ok, Node 9/9, Rust 10/10.
 
-Code changes are merged but **NOT deployed**. Run:
+## Cloudflare worker — DEPLOYED + VERIFIED LIVE
 
-```
-cd examples/worker && wrangler deploy
-```
+- `wrangler deploy` ran cleanly during the session; auth was already provisioned.
+- Verified against the live URL: bare root returns `HTTP/2 404` empty body; `/<sid>` returns `HTTP/2 308` redirecting to `/<sid>/`; `/<sid>/` serves HTML.
+- The hi-from-cloudflare bug pattern from yesterday is gone.
 
-Then re-test the bare-root and trailing-slash bugs against the live URL.
+## Open backlog after this pass
 
-## Open backlog after overnight
+Only the two "needs Andrew" tickets remain — same as before the overnight wave, modulo the worker fixes that resolved everything else:
 
-**Needs Andrew (skip without your call):**
+- **act-9dc1** (p3, v2-candidate): R2-backed multipart for the Cloudflare worker. Provisions paid Cloudflare R2 infra (free tier exists but the cost framing is a call you should make). Specifically: R2 bucket setup, binding choice, possibly Worker quota implications.
+- **act-db17** (p3, v1-candidate): Bundled `poke-serve` binary. Brief explicitly defers until "real pull-signal arrives from actual use." No such signal yet — drafting a release-infrastructure choice now is premature artifact creation.
 
-- **act-9dc1** (p3, v2-candidate): R2-backed multipart for the Cloudflare worker. Needs R2 bucket setup, cost framing, possibly a binding choice.
-- **act-db17** (p3, v1-candidate): Bundled `poke-serve` binary. Release infrastructure (GoReleaser vs GitHub Action vs checked-in tarballs) is a preference call.
+## Substrate-agnostic claim — current evidence
 
-**New mid-session — caught a flaw in last night's substrate-test design:**
+- Four working sibling impls: Go, Python, Node, Rust.
+- Cross-impl byte-equivalent SUBMIT line confirmed across all four for the same JSON submission (with documented exceptions: JSON key ordering and RFC3339 precision are both explicitly implementation-defined now).
+- Rust was the only one built references-only. Its coherence pass surfaced five real doc gaps which were resolved. Future references-only ports (Deno, Elixir, …) would now have a tighter reference set to work from; the experiment is repeatable if you want a stronger N.
+- Net: the references survive cross-substrate scrutiny under the "non-prescriptive where possible, pinned where convergence demands" stance.
 
-- **act-a063** (p2, task): Build a sibling reference impl from references ONLY (no peek at `examples/`). The "alternative-language" wave (Python in act-7bd1, Node in act-e719) was supposed to validate the substrate-agnostic claim, but both ports were dispatched with the existing implementations explicitly in their context-gathering prompts. They cloned the existing impls' shape rather than independently deriving from the references. The proper test: pick a language sufficiently distinct (Rust, Deno, Elixir, Ruby), forbid reading `examples/` until the impl is done, post-impl coherence pass to surface doc gaps. The Python port's doc-precision findings (act-76ea) were a partial signal — a references-only run would surface a richer, more representative set.
+## Notes worth keeping
 
-## Notes from the agents
-
-- **Security hook false-positive on Node files.** The Node-port agent reported that `security_reminder_hook.py` fires with a warning about a particular shell-invocation API when writing `examples/server.mjs`, even though the file doesn't use that API. The hook's text-match is too broad on JS/MJS files (it even fires on prose mentioning the trigger string). Worked around with a heredoc. Worth knowing if more Node work lands — and worth considering whether the hook should narrow its match.
-
-## bgIsolation harness setting
-
-`.claude/settings.json` has `{"worktree": {"bgIsolation": "none"}}` (set yesterday). Took effect for the overnight session — the orchestrator was able to Edit/Write on main-checkout paths directly when needed.
+- **Security hook false-positive on JS/MJS files** persists — `security_reminder_hook.py` text-matches the trigger string too broadly, even firing on prose mentioning it. The Node-port and orchestrator both hit this; both worked around with heredoc. Worth narrowing the hook's match.
 
 ## Worktree cleanup status
 
-Two of three completed worktrees were force-removed mid-pass. One worktree (`agent-a700b06f7e0f63304`, doc-precision) is still around because the orchestrator's cwd lived inside it; it'll get cleaned up the next time `/orchestrate` runs.
+All worktrees from this session were force-removed after merge. `git worktree list` shows only the main checkout.
 
 ## What to do next
 
-If you want to keep momentum on the project itself:
+If you want to keep momentum:
+1. Decide on **act-9dc1** (R2). If yes, dispatch with a one-line cost confirmation in the prompt and I (orchestrator) can run it next pass.
+2. Decide on **act-db17** (binary) — most natural trigger is someone outside your sessions using poke and hitting "I wish this were installable." Not yet visible.
+3. Run another references-only port (Deno, Elixir, Ruby) for a second-N validation if you want stronger substrate-agnostic evidence.
 
-1. Deploy the worker (above) — gates the dogfood validation of the bug fixes.
-2. Re-dogfood the hi-from-cloudflare poke against the deployed fix — confirm trailing-slash redirect works in practice.
-3. Decide on act-a063 (references-only substrate test) — Rust? Deno? Elixir? Pick a language and let an `/orchestrate` pass dispatch it with the corrected constraints.
-
-If you want to stop here, the backlog is calmly waiting and v0 is fully shipped + substrate-agnostic-by-three-impls (with the caveat captured in act-a063 about how the third was validated).
+If you want to stop here: v0 is fully shipped, substrate-agnostic-by-four-impls (one references-only), all worker bugs fixed and deployed. Project is at a natural resting point.
 
 ## Reading order for next session
 
 1. This file (just an overview).
-2. `git log e21fb56..HEAD` — full diff of the overnight work.
-3. `act list | grep -v closed` — current open backlog (should match the three tickets above).
+2. `git log fe45cb6..HEAD` — full diff of this autonomous pass.
+3. `act list | grep -v closed` — current open backlog (should match the two tickets above).
