@@ -63,6 +63,16 @@ new entry and write atomically; everything else (rotating, deleting, archiving,
 recovering after crash) is an agent responsibility — see "Beyond the pattern"
 in `pattern.md`.
 
+"Atomic write" here means **rename-atomicity** — write to a temp file, then
+rename over the live path so concurrent readers never see a half-written
+state file. **Crash durability (fsync before rename) is explicitly not part
+of the contract**, given the ephemeral-state premise: surfaces are
+task-shaped and state is throwaway, so losing the last submission to a
+power-cut is acceptable. Implementations may add fsync at their discretion
+if the deployment context wants stronger guarantees (the Node reference
+fsyncs before rename; the Go and Rust references don't). Both shapes are
+valid.
+
 ## Submission semantics
 
 Two content types on `POST /submit`: `application/json` and
@@ -70,6 +80,11 @@ Two content types on `POST /submit`: `application/json` and
 (`application/x-www-form-urlencoded`) are intentionally not accepted — HTML
 surfaces should use `fetch` with a JSON body for typed submissions, or
 `FormData` for multipart uploads.
+
+Unsupported content types (including `application/x-www-form-urlencoded`)
+return `415 Unsupported Media Type` with a terse text body. This is pinned —
+agents tailing client errors and cross-implementation tooling benefit from
+the same status arriving regardless of which reference server is running.
 
 ### `application/json` — typed submissions
 
@@ -118,6 +133,13 @@ actual response.
 
 ### `multipart/form-data` — file uploads
 
+**Body-size cap.** Implementations should cap multipart body size to protect
+against runaway memory use or accidental large uploads. The Go and Node
+references use 32 MiB (`32 << 20`); ephemeral-surface pokes don't need
+higher limits in practice. The specific cap is implementer's call — pick
+what fits the task — but having *some* cap is expected. Over-cap requests
+should return `413 Payload Too Large`.
+
 Body carries:
 
 - An `id` form field naming the submitting affordance.
@@ -129,10 +151,15 @@ The server:
 
 1. Parses the multipart body.
 2. For each uploaded file, writes it to a path the server chooses and collects
-   the absolute path. The pattern leaves storage location to the implementer;
-   the reference Go server uses an OS-temp-dir-scoped path. Alternative
-   implementations may choose any location they can read back and reference by
-   absolute path.
+   the absolute path. **Storage path shape is implementer's call** — same
+   class of decision as state file lifecycle (see `pattern.md` §"Beyond the
+   pattern"). Any location the agent can read back by absolute path works.
+   For orientation, the Go and Node references converge on
+   `<tmpdir>/poke-uploads/<random-hex>-<sanitized-basename>` (random prefix
+   to avoid collisions, shared `poke-uploads` subdirectory under
+   `os.TempDir()` / `os.tmpdir()`); the Rust reference uses a per-process
+   subdirectory variant. Either shape — or any other the agent prefers — is
+   fine; this is not normative.
 3. Constructs the payload:
 
 ```json
