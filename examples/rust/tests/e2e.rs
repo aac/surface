@@ -307,6 +307,90 @@ fn e2e_fs_drain_mode_writes_submission_file() {
 }
 
 #[test]
+fn e2e_multipart_over_cap_returns_413_with_no_side_effects() {
+    // Wire contract (references/wire-example.md §"Body-size cap"):
+    // multipart bodies exceeding the implementation cap return
+    // 413 Payload Too Large. The cap rejection must be a clean
+    // refusal — no upload file written, no SUBMIT line emitted,
+    // no state-file submission appended.
+    //
+    // The Rust reference enforces the cap pre-flight when
+    // Content-Length is present; we set a 64 MiB Content-Length
+    // (over the 32 MiB cap) and send only a token body so the
+    // server can reject before reading the rest.
+    let dir = tempdir();
+    let state = write_initial_state(&dir);
+    let html = write_html(&dir);
+    let port = free_port();
+    let h = spawn_server(&state, &html, port, "stdout");
+
+    let boundary = "----poketestoversize";
+    let token_body = format!("--{}--\r\n", boundary);
+    let oversize_content_length: u64 = (64 << 20) + token_body.len() as u64;
+    let req = format!(
+        "POST /submit HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nContent-Type: multipart/form-data; boundary={}\r\nContent-Length: {}\r\n\r\n{}",
+        boundary, oversize_content_length, token_body
+    );
+
+    // Hand-rolled write: we can't use the Read-to-end helper because
+    // the server returns 413 and closes without consuming the rest of
+    // the body, so we just want the status line.
+    let mut s = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    s.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+    // Best-effort write; the server may close partway through reading
+    // our oversized declared body, producing a broken pipe. Either way
+    // the status arrives first.
+    let _ = s.write_all(req.as_bytes());
+    s.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+    let mut buf = [0u8; 256];
+    let n = s.read(&mut buf).unwrap_or(0);
+    let head = String::from_utf8_lossy(&buf[..n]).to_string();
+    assert!(
+        head.starts_with("HTTP/1.1 413"),
+        "expected 413 status, got: {}",
+        head
+    );
+
+    // Side-effect checks: give the server a beat to settle, then
+    // confirm no SUBMIT line on stdout, no submission appended to
+    // state, and no upload file in the per-process upload dir.
+    thread::sleep(Duration::from_millis(150));
+    let submit_seen = wait_for_line(
+        &h,
+        |l| l.starts_with("SUBMIT "),
+        Duration::from_millis(200),
+    );
+    assert!(
+        submit_seen.is_none(),
+        "no SUBMIT line should be emitted on cap rejection, got: {:?}",
+        submit_seen
+    );
+
+    let on_disk: Value = serde_json::from_slice(&fs::read(&state).unwrap()).unwrap();
+    let subs = on_disk["submissions"].as_array().unwrap();
+    assert!(
+        subs.is_empty(),
+        "no submission should be appended on cap rejection, got: {:?}",
+        subs
+    );
+
+    // Upload dir uses the child server's PID; check only THIS child's
+    // dir to avoid colliding with parallel tests' upload dirs.
+    let child_pid = h.child.id();
+    let upload_dir = std::env::temp_dir().join(format!("poke-uploads-{}", child_pid));
+    if upload_dir.exists() {
+        let count = fs::read_dir(&upload_dir)
+            .map(|rd| rd.flatten().count())
+            .unwrap_or(0);
+        assert_eq!(
+            count, 0,
+            "upload dir {:?} should be empty after cap rejection",
+            upload_dir
+        );
+    }
+}
+
+#[test]
 fn e2e_unknown_route_returns_404() {
     let dir = tempdir();
     let state = write_initial_state(&dir);

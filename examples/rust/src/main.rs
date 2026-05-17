@@ -17,6 +17,10 @@
 // Wire surface (matches references/wire-example.md):
 //   GET  /                 — serves HTML from --html, Cache-Control: no-store
 //   POST /submit           — application/json OR multipart/form-data
+//                            multipart bodies are hard-capped at 32 MiB
+//                            (MAX_MULTIPART_BYTES); over-cap returns 413
+//                            Payload Too Large with no partial state
+//                            side-effects, matching the Node reference.
 //   GET  /static/<path>    — served from --static <dir> if the flag is provided
 //
 // State file (--state path), JSON:
@@ -33,7 +37,7 @@
 
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 use std::sync::{Arc, Mutex};
@@ -44,6 +48,13 @@ use chrono::{SecondsFormat, Utc};
 use multipart::server::Multipart;
 use serde_json::{json, Value};
 use tiny_http::{Header, Method, Request, Response, Server};
+
+// Hard cap on multipart body size. Matches the Node reference (32 MiB);
+// requests that exceed this return 413 Payload Too Large with no
+// partial state side-effects (no upload file written, no SUBMIT line
+// emitted, no state-file append). See references/wire-example.md
+// §"multipart/form-data — file uploads", "Body-size cap" paragraph.
+const MAX_MULTIPART_BYTES: u64 = 32 << 20;
 
 // --- CLI parsing (deliberately minimal; no clap to keep the dep set small) ----------------
 
@@ -224,6 +235,12 @@ impl Emitter {
     }
 }
 
+fn cleanup_partial_uploads(paths: &[PathBuf]) {
+    for p in paths {
+        let _ = fs::remove_file(p);
+    }
+}
+
 fn sanitize_filename(s: &str) -> String {
     s.chars()
         .map(|c| {
@@ -339,13 +356,65 @@ fn handle_submit(
     record_and_emit(state, emitter, &id, &payload)
 }
 
+/// Reader adapter that fails with `ErrorKind::Other` (carrying the
+/// sentinel message used by `is_cap_exceeded`) once `limit` bytes have
+/// been read. The multipart parser drives reads through this adapter,
+/// so over-cap bodies surface as a parse error before any file is
+/// flushed to disk.
+struct CapReader<R> {
+    inner: R,
+    read: u64,
+    limit: u64,
+}
+
+impl<R: Read> CapReader<R> {
+    fn new(inner: R, limit: u64) -> Self {
+        Self { inner, read: 0, limit }
+    }
+}
+
+const CAP_EXCEEDED_MARKER: &str = "poke:multipart-cap-exceeded";
+
+fn is_cap_exceeded(err: &str) -> bool {
+    err.contains(CAP_EXCEEDED_MARKER)
+}
+
+impl<R: Read> Read for CapReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let remaining = self.limit.saturating_sub(self.read);
+        if remaining == 0 {
+            // Probe one more byte: if the source has nothing left, EOF
+            // (under-cap body that happens to land exactly on the limit
+            // boundary). If it does, the body exceeds the cap.
+            let mut probe = [0u8; 1];
+            return match self.inner.read(&mut probe)? {
+                0 => Ok(0),
+                _ => Err(io::Error::new(io::ErrorKind::Other, CAP_EXCEEDED_MARKER)),
+            };
+        }
+        let cap = std::cmp::min(buf.len() as u64, remaining) as usize;
+        let n = self.inner.read(&mut buf[..cap])?;
+        self.read += n as u64;
+        Ok(n)
+    }
+}
+
 fn handle_multipart_submit(
     request: &mut Request,
     state: &Arc<Mutex<StateStore>>,
     emitter: &Arc<Emitter>,
     boundary: &str,
 ) -> Response<std::io::Cursor<Vec<u8>>> {
-    let mut mp = Multipart::with_body(request.as_reader(), boundary);
+    // Pre-flight: if Content-Length is present and over cap, reject
+    // before touching the body or creating any upload directory.
+    if let Some(len) = request.body_length() {
+        if (len as u64) > MAX_MULTIPART_BYTES {
+            return Response::from_string("payload too large\n").with_status_code(413);
+        }
+    }
+
+    let reader = CapReader::new(request.as_reader(), MAX_MULTIPART_BYTES);
+    let mut mp = Multipart::with_body(reader, boundary);
     let mut id: Option<String> = None;
     let mut files: Vec<String> = Vec::new();
     let mut other: BTreeMap<String, Value> = BTreeMap::new();
@@ -355,6 +424,11 @@ fn handle_multipart_submit(
         return Response::from_string(format!("mkdir uploads: {}\n", e))
             .with_status_code(500);
     }
+
+    // Track files we create so we can clean them up if the body turns
+    // out to be over-cap mid-stream (cap rejection must have no
+    // partial side-effects).
+    let mut written_paths: Vec<PathBuf> = Vec::new();
 
     loop {
         match mp.read_entry() {
@@ -371,6 +445,12 @@ fn handle_multipart_submit(
                     match fs::File::create(&dest) {
                         Ok(mut f) => {
                             if let Err(e) = std::io::copy(&mut field.data, &mut f) {
+                                written_paths.push(dest.clone());
+                                if is_cap_exceeded(&e.to_string()) {
+                                    cleanup_partial_uploads(&written_paths);
+                                    return Response::from_string("payload too large\n")
+                                        .with_status_code(413);
+                                }
                                 return Response::from_string(format!("write upload: {}\n", e))
                                     .with_status_code(500);
                             }
@@ -380,11 +460,17 @@ fn handle_multipart_submit(
                                 .with_status_code(500)
                         }
                     }
+                    written_paths.push(dest.clone());
                     files.push(dest.to_string_lossy().to_string());
                 } else {
                     // Text field.
                     let mut buf = String::new();
                     if let Err(e) = field.data.read_to_string(&mut buf) {
+                        if is_cap_exceeded(&e.to_string()) {
+                            cleanup_partial_uploads(&written_paths);
+                            return Response::from_string("payload too large\n")
+                                .with_status_code(413);
+                        }
                         return Response::from_string(format!("read field: {}\n", e))
                             .with_status_code(400);
                     }
@@ -397,8 +483,14 @@ fn handle_multipart_submit(
             }
             Ok(None) => break,
             Err(e) => {
-                return Response::from_string(format!("multipart parse: {}\n", e))
-                    .with_status_code(400)
+                let msg = e.to_string();
+                if is_cap_exceeded(&msg) {
+                    cleanup_partial_uploads(&written_paths);
+                    return Response::from_string("payload too large\n")
+                        .with_status_code(413);
+                }
+                return Response::from_string(format!("multipart parse: {}\n", msg))
+                    .with_status_code(400);
             }
         }
     }
