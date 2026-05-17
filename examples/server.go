@@ -11,9 +11,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -173,9 +177,110 @@ func compactJSON(raw json.RawMessage) (string, error) {
 	return buf.String(), nil
 }
 
+// maxMultipartMemory caps the in-memory portion of multipart parsing; larger
+// uploads spill to the OS tmp dir via the stdlib, which is fine for the
+// reference server's ephemeral-surface use case.
+const maxMultipartMemory = 32 << 20 // 32 MiB
+
 func (h *Handler) submitMultipart(w http.ResponseWriter, r *http.Request) {
-	// Implemented in Subtask 6B Step 12.
-	http.Error(w, "not yet", http.StatusNotImplemented)
+	if err := r.ParseMultipartForm(maxMultipartMemory); err != nil {
+		http.Error(w, "invalid multipart: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	form := r.MultipartForm
+
+	id := r.FormValue("id")
+	if id == "" {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+
+	// Collect uploaded files, saving each to a per-process tmpdir under
+	// os.TempDir(). Path shape: <TempDir>/poke-uploads/<random-hex>-<safe-name>.
+	var savedPaths []string
+	uploadDir := filepath.Join(os.TempDir(), "poke-uploads")
+	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+		http.Error(w, "create upload dir: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, headers := range form.File {
+		for _, fh := range headers {
+			path, err := saveUpload(uploadDir, fh)
+			if err != nil {
+				http.Error(w, "save upload: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			savedPaths = append(savedPaths, path)
+		}
+	}
+
+	// Build payload: include the files array always, plus any non-id form
+	// fields the surface posted (collapsed to first value per name for
+	// simplicity; agents needing more structure can pick another wire).
+	payload := map[string]any{"files": savedPaths}
+	for name, values := range form.Value {
+		if name == "id" || len(values) == 0 {
+			continue
+		}
+		payload[name] = values[0]
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "encode payload: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if err := h.record(id, json.RawMessage(encoded)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+// saveUpload writes one uploaded file under dir with a random-hex prefix and
+// a sanitized original filename, returning the absolute path.
+func saveUpload(dir string, fh *multipart.FileHeader) (string, error) {
+	src, err := fh.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	var nonce [8]byte
+	if _, err := rand.Read(nonce[:]); err != nil {
+		return "", err
+	}
+	name := hex.EncodeToString(nonce[:]) + "-" + sanitizeFilename(fh.Filename)
+	full := filepath.Join(dir, name)
+	abs, err := filepath.Abs(full)
+	if err != nil {
+		return "", err
+	}
+
+	dst, err := os.Create(abs)
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		dst.Close()
+		os.Remove(abs)
+		return "", err
+	}
+	if err := dst.Close(); err != nil {
+		os.Remove(abs)
+		return "", err
+	}
+	return abs, nil
+}
+
+// sanitizeFilename strips path components and falls back to a generic name
+// when the upload supplies an empty or path-shaped name.
+func sanitizeFilename(name string) string {
+	name = filepath.Base(name)
+	if name == "" || name == "." || name == "/" || name == `\` {
+		return "upload"
+	}
+	return name
 }
 
 func main() {
