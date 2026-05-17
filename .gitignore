@@ -1,1 +1,18 @@
+# Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Coverage
+coverage.*
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# act
 .act/index.db
