@@ -27,6 +27,17 @@ The concerns that matter scale with how far the surface travels from the agent.
 
 The pattern doesn't prescribe which combination. Pick what fits the channel the surface is reaching the user through.
 
+### What the worker reference actually implements
+
+The Cloudflare Worker reference at `examples/worker/` is the first hosted substrate poke ships. It forces choices on the abstract list above; the concrete shape it landed on:
+
+- **URL unguessability via 128-bit session IDs.** Session IDs are 16 random bytes from `crypto.getRandomValues` (Workers' CSPRNG, same source as `crypto.randomUUID()`), rendered as 32 hex characters. ~128 bits comfortably clears the "would a directory scan find this?" threshold. Session IDs sit in the URL path (`https://<host>/<id>`); the URL *is* the access control. Treat URL exposure (logs, browser history, screenshots, paste buffers, OAuth callback URLs that strip fragments but keep paths) as a confidentiality leak equivalent to a leaked bearer token.
+- **CSRF on `POST /submit` via two complementary checks, both must pass.** First, the `Origin` header (when present) must match the request `Host` — cross-site fetches set Origin to the attacker's page, which fails. Second, a per-session CSRF token must arrive in either an `x-poke-csrf` header (preferred) or a `csrf_token` field in the JSON body; the token is generated at provisioning and shipped to the browser by injecting `window.POKE_CSRF_TOKEN` into the served HTML. Constant-time compared so timing differences don't leak the token. Either check failing returns `403`. The two checks layer because each catches what the other misses (CSRF tokens defend against same-origin scripts running in a compromised tab; Origin defends against environments where a token leak is plausible).
+- **Provisioning gated by a shared Bearer token.** `POST /_provision` is agent-only — without auth, anyone could mint sessions on the agent's namespace and burn through KV quota. The token lives in `env.PROVISION_TOKEN`, set via `wrangler secret put`. The Bearer header is checked early and returns `401` on missing or wrong token.
+- **No magic-link / per-user auth.** v0 hosted assumes "the surface gates nothing important enough to need an identity layer." If a deployment violates that assumption, build the auth layer in or pick a different substrate. The pattern doesn't pretend the unguessable-URL approach is universal — it's just the shape this reference takes.
+
+These choices are illustrative, not normative. An equivalent implementation could use signed cookies, double-submit tokens, OAuth, signed URLs with expiry, etc.; the pattern fixes the requirement (think about CSRF and access control) and leaves the mechanism to the agent.
+
 ## Cross-tool replay
 
 Per-session ID scope (assuming the agent starts each poke with fresh state) limits intra-machine replay: an old submission against a session that no longer exists is just a 404. Hosted contexts where session IDs leak into logs, browser history, or screenshots need more — short-lived tokens, one-time-use submissions, expiry — but designing that is the agent's call in context.
@@ -36,8 +47,10 @@ Per-session ID scope (assuming the agent starts each poke with fresh state) limi
 These are recognized as needed before `poke` moves materially beyond localhost, but v0 does not ship guidance for them. They're named here so agents know they're future work, not v0 omissions to invent ad-hoc:
 
 - Concrete sanitization patterns for free-field content
-- Magic-link or token-based auth schemes for hosted surfaces
-- Formal link expiration / one-time-use semantics
+- Magic-link or token-based auth schemes for hosted surfaces (the worker reference picks "unguessable URL + CSRF only" and explicitly forgoes per-user identity)
+- Formal link expiration / one-time-use semantics (worker sessions live until manually deleted; no TTL or sweeper)
 - Replay protection beyond per-session scoping
+- Persistent / multi-user surfaces (any deployment that needs identity is a different artifact — build a real app)
+- R2-backed multipart uploads for hosted substrates (the worker stubs `POST /<id>/upload` with `501`; KV doesn't fit binary blobs cleanly)
 
 If a deployment needs any of these and the answer isn't obvious, that's a signal to pause and think rather than to improvise.
