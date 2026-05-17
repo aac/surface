@@ -1,318 +1,425 @@
-// Tests for examples/server.mjs — Node sibling of examples/server_test.go
-// and examples/test_server.py. Uses Node's stdlib `node:test` runner so
-// nothing in this repo needs a package.json or installed deps.
+// Wire-contract tests for the Node reference server.
 //
-// Runnable as:
+// We assert what references/wire-example.md says — not what any sibling
+// implementation does. Operational divergences (port, error statuses,
+// watchdog) are out of scope here.
 //
-//     node --test examples/server.test.mjs
-//
-// The tests spin a real HTTP server on 127.0.0.1:0, hit it with
-// node:http's fetch, and assert against the state file and a captured
-// stdout buffer. The server's record() path takes a stdoutWrite function
-// so tests collect SUBMIT lines without monkey-patching globals — same
-// shape as the test approach in the Go/Python siblings.
+// Run with: node --test examples/server.test.mjs
 
-import test from 'node:test';
-import { strict as assert } from 'node:assert';
-import { readFile, writeFile, mkdtemp, rm, unlink } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { randomBytes } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
-import { buildServer, watchParentDeath } from './server.mjs';
+import {
+  createPokeServer,
+  parseMultipart,
+  extractBoundary,
+  sanitizeFilename,
+  atomicWriteJSON,
+} from './server.mjs';
 
 // ---------------------------------------------------------------------------
-// Fixture helpers
-// ---------------------------------------------------------------------------
+// Test harness: spin up a real HTTP server on an ephemeral port.
 
-async function makeWorkspace() {
-  const dir = await mkdtemp(join(tmpdir(), 'poke-node-test-'));
-  return {
-    dir,
-    statePath: join(dir, 'state.json'),
-    htmlPath: join(dir, 'page.html'),
-    async cleanup() {
-      try { await rm(dir, { recursive: true, force: true }); } catch { /* ignore */ }
-    },
-  };
-}
+async function withServer(t, { html = DEFAULT_HTML, initialState = INITIAL_STATE } = {}) {
+  const dir = await mkdtemp(join(tmpdir(), 'poke-test-'));
+  const statePath = join(dir, 'state.json');
+  const htmlPath = join(dir, 'page.html');
+  await writeFile(htmlPath, html);
+  await writeFile(statePath, JSON.stringify(initialState, null, 2));
 
-async function writeInitialState(path, affordances = {}) {
-  const state = {
-    session_id: `test-${randomBytes(4).toString('hex')}`,
-    affordances,
-    submissions: [],
-  };
-  await writeFile(path, JSON.stringify(state));
-}
-
-async function startServer(statePath, htmlPath) {
-  const captured = { stdout: '' };
-  const server = buildServer({
+  const emissions = [];
+  const server = createPokeServer({
     statePath,
     htmlPath,
-    stdoutWrite: (s) => { captured.stdout += s; },
+    emit: (line) => emissions.push(line),
   });
-  await new Promise((resolve, reject) => {
-    server.once('error', reject);
-    server.listen(0, '127.0.0.1', () => {
-      server.off('error', reject);
-      resolve();
-    });
-  });
+
+  await new Promise((res) => server.listen(0, '127.0.0.1', res));
   const { port } = server.address();
-  return {
-    baseUrl: `http://127.0.0.1:${port}`,
-    captured,
-    async stop() {
-      await new Promise((resolve) => server.close(() => resolve()));
-    },
-  };
+  const base = `http://127.0.0.1:${port}`;
+
+  t.after(async () => {
+    await new Promise((res) => server.close(res));
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  return { base, statePath, htmlPath, dir, emissions, server };
 }
 
-// Minimal multipart body builder so the test file pulls in no deps.
-function buildMultipart(fields, files) {
-  const boundary = '----pokeNodeTestBoundary' + randomBytes(4).toString('hex');
-  const crlf = '\r\n';
-  const chunks = [];
-  for (const [name, value] of Object.entries(fields)) {
-    chunks.push(Buffer.from(`--${boundary}${crlf}`));
-    chunks.push(Buffer.from(`Content-Disposition: form-data; name="${name}"${crlf}${crlf}`));
-    chunks.push(Buffer.from(`${value}${crlf}`));
-  }
-  for (const { fieldName, filename, data } of files) {
-    chunks.push(Buffer.from(`--${boundary}${crlf}`));
-    chunks.push(Buffer.from(
-      `Content-Disposition: form-data; name="${fieldName}"; filename="${filename}"${crlf}` +
-      `Content-Type: application/octet-stream${crlf}${crlf}`
-    ));
-    chunks.push(Buffer.from(data));
-    chunks.push(Buffer.from(crlf));
-  }
-  chunks.push(Buffer.from(`--${boundary}--${crlf}`));
-  return {
-    body: Buffer.concat(chunks),
-    contentType: `multipart/form-data; boundary=${boundary}`,
-  };
+const DEFAULT_HTML = '<!doctype html><html><body>hello</body></html>';
+const INITIAL_STATE = {
+  session_id: 's_test',
+  affordances: {
+    confirm: { label: 'Confirm', intent: 'confirm_op' },
+    upload:  { label: 'Upload',  intent: 'receive_file' },
+  },
+  submissions: [],
+};
+
+async function readState(statePath) {
+  return JSON.parse(await readFile(statePath, 'utf8'));
 }
 
 // ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+// GET /
 
-test('GET / serves HTML with Cache-Control: no-store', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html><body>hello poke</body></html>');
-  await writeInitialState(ws.statePath);
-
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const resp = await fetch(srv.baseUrl + '/');
-  assert.equal(resp.status, 200);
-  const body = await resp.text();
-  assert.match(body, /hello poke/);
-  // Mirrors the Go/Python reference assertions: no-store guards against
-  // stale-tab hazard on a reused port.
-  const cc = resp.headers.get('cache-control') ?? '';
-  assert.ok(cc.includes('no-store'), `Cache-Control missing no-store: ${cc}`);
-  assert.ok(cc.includes('must-revalidate'), `Cache-Control missing must-revalidate: ${cc}`);
+test('GET / serves the HTML body with text/html', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/html/);
+  assert.equal(await res.text(), DEFAULT_HTML);
 });
 
-test('POST /submit (json) appends state and emits SUBMIT line', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath, { abc: { label: 'Yes', intent: 'yes' } });
+test('GET on an unknown path returns 404', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/nope');
+  assert.equal(res.status, 404);
+});
 
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
+// ---------------------------------------------------------------------------
+// GET /static/
 
-  const resp = await fetch(srv.baseUrl + '/submit', {
+test('GET /static/<path> serves files from the HTML directory', async (t) => {
+  const { base, dir } = await withServer(t);
+  await writeFile(join(dir, 'style.css'), 'body { color: red; }');
+  const res = await fetch(base + '/static/style.css');
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-type'), /text\/css/);
+  assert.equal(await res.text(), 'body { color: red; }');
+});
+
+test('GET /static/<missing> returns 404', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/static/missing.css');
+  assert.equal(res.status, 404);
+});
+
+test('GET /static/ rejects path traversal', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/static/..%2F..%2Fetc%2Fpasswd');
+  assert.ok(res.status === 403 || res.status === 404, `unexpected ${res.status}`);
+});
+
+// ---------------------------------------------------------------------------
+// POST /submit — JSON
+
+test('POST /submit (JSON, null payload) appends entry and emits SUBMIT line', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const res = await fetch(base + '/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: 'abc', payload: null }),
+    body: JSON.stringify({ id: 'confirm', payload: null }),
   });
-  assert.equal(resp.status, 200);
+  assert.equal(res.status, 200);
 
-  // Stdout shape per shared contract: "SUBMIT <id> <payload-json>\n".
-  const out = srv.captured.stdout;
-  assert.ok(out.startsWith('SUBMIT abc '), `unexpected stdout: ${JSON.stringify(out)}`);
-  const trimmed = out.trim();
-  const parts = trimmed.split(' ');
-  assert.equal(parts[0], 'SUBMIT');
-  assert.equal(parts[1], 'abc');
-  // Remainder is JSON-parsable per the locked contract.
-  const payload = JSON.parse(parts.slice(2).join(' '));
-  assert.equal(payload, null);
-
-  const state = JSON.parse(await readFile(ws.statePath, 'utf-8'));
+  const state = await readState(statePath);
   assert.equal(state.submissions.length, 1);
-  assert.equal(state.submissions[0].id, 'abc');
+  const entry = state.submissions[0];
+  assert.equal(entry.id, 'confirm');
+  assert.equal(entry.payload, null);
+  // RFC3339-ish ISO 8601, parseable by Date.
+  assert.ok(!Number.isNaN(Date.parse(entry.at)), `unparseable timestamp: ${entry.at}`);
+
+  // SUBMIT line shape: "SUBMIT <id> <payload-json>", JSON-parseable tail.
+  assert.equal(emissions.length, 1);
+  const line = emissions[0];
+  const [verb, id, ...rest] = line.split(' ');
+  assert.equal(verb, 'SUBMIT');
+  assert.equal(id, 'confirm');
+  const tail = rest.join(' ');
+  assert.equal(JSON.parse(tail), null);
+});
+
+test('POST /submit (JSON, object payload) round-trips faithfully', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const payload = { selected: ['a', 'b'], note: 'looks good' };
+  const res = await fetch(base + '/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'confirm', payload }),
+  });
+  assert.equal(res.status, 200);
+
+  const state = await readState(statePath);
+  assert.deepEqual(state.submissions[0].payload, payload);
+
+  // SUBMIT line: split on first two spaces, JSON-parse remainder.
+  const line = emissions[0];
+  const firstSpace = line.indexOf(' ');
+  const secondSpace = line.indexOf(' ', firstSpace + 1);
+  const verb = line.slice(0, firstSpace);
+  const id = line.slice(firstSpace + 1, secondSpace);
+  const tail = line.slice(secondSpace + 1);
+  assert.equal(verb, 'SUBMIT');
+  assert.equal(id, 'confirm');
+  assert.deepEqual(JSON.parse(tail), payload);
+});
+
+test('POST /submit (JSON, missing payload) normalises to null', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const res = await fetch(base + '/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'confirm' }),
+  });
+  assert.equal(res.status, 200);
+
+  const state = await readState(statePath);
   assert.equal(state.submissions[0].payload, null);
-  assert.ok(typeof state.submissions[0].at === 'string' && state.submissions[0].at.length > 0);
+
+  // SUBMIT line must carry literal `null` as the payload-json token.
+  assert.equal(emissions[0], 'SUBMIT confirm null');
 });
 
-test('POST /submit (json) without id returns 400', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath);
-
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const resp = await fetch(srv.baseUrl + '/submit', {
+test('POST /submit (JSON, malformed body) returns 4xx and does not record', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const res = await fetch(base + '/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ payload: null }),
+    body: 'not-json-at-all',
   });
-  assert.equal(resp.status, 400);
+  assert.ok(res.status >= 400 && res.status < 500, `unexpected ${res.status}`);
+  const state = await readState(statePath);
+  assert.equal(state.submissions.length, 0);
+  assert.equal(emissions.length, 0);
 });
 
-test('POST /submit (multipart) stores upload and emits SUBMIT line', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath, { 'upload-btn': { label: 'Upload', intent: 'upload' } });
-
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const wantBytes = Buffer.from('hello bytes');
-  const { body, contentType } = buildMultipart(
-    { id: 'upload-btn' },
-    [{ fieldName: 'upload', filename: 'greeting.txt', data: wantBytes }],
-  );
-
-  const resp = await fetch(srv.baseUrl + '/submit', {
+test('POST /submit (JSON, missing id) returns 4xx', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/submit', {
     method: 'POST',
-    headers: { 'Content-Type': contentType },
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload: 'orphan' }),
+  });
+  assert.ok(res.status >= 400 && res.status < 500, `unexpected ${res.status}`);
+});
+
+test('POST /submit (JSON, multi-line user input) emits a single-line SUBMIT', async (t) => {
+  const { base, emissions } = await withServer(t);
+  const payload = { note: 'line one\nline two\nline three' };
+  const res = await fetch(base + '/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: 'confirm', payload }),
+  });
+  assert.equal(res.status, 200);
+
+  // Wire contract: the SUBMIT emission is exactly one line. Multi-line user
+  // input must survive as JSON-escaped \n in the payload.
+  assert.equal(emissions.length, 1);
+  assert.ok(!emissions[0].includes('\n'), 'SUBMIT line must not contain a literal newline');
+  const tail = emissions[0].slice('SUBMIT confirm '.length);
+  assert.deepEqual(JSON.parse(tail), payload);
+});
+
+// ---------------------------------------------------------------------------
+// POST /submit — multipart/form-data
+
+function buildMultipart(boundary, fields) {
+  // fields: array of { name, filename?, contentType?, value: string|Buffer }
+  const parts = [];
+  for (const f of fields) {
+    let headers = `Content-Disposition: form-data; name="${f.name}"`;
+    if (f.filename != null) headers += `; filename="${f.filename}"`;
+    headers += '\r\n';
+    if (f.contentType) headers += `Content-Type: ${f.contentType}\r\n`;
+    parts.push(
+      Buffer.concat([
+        Buffer.from(`--${boundary}\r\n${headers}\r\n`),
+        Buffer.isBuffer(f.value) ? f.value : Buffer.from(f.value),
+        Buffer.from('\r\n'),
+      ]),
+    );
+  }
+  parts.push(Buffer.from(`--${boundary}--\r\n`));
+  return Buffer.concat(parts);
+}
+
+test('POST /submit (multipart) stores files, emits SUBMIT with files[] payload', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const boundary = 'AaB03x';
+  const body = buildMultipart(boundary, [
+    { name: 'id', value: 'upload' },
+    { name: 'note', value: 'a quick note' },
+    { name: 'receipt', filename: 'receipt.txt', contentType: 'text/plain', value: 'hello file' },
+  ]);
+
+  const res = await fetch(base + '/submit', {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
     body,
   });
-  assert.equal(resp.status, 200, `body: ${await resp.text().catch(() => '<no body>')}`);
+  assert.equal(res.status, 200);
 
-  const out = srv.captured.stdout.trim();
-  assert.ok(out.startsWith('SUBMIT upload-btn '), `unexpected stdout: ${JSON.stringify(out)}`);
-  const payloadJson = out.split(' ').slice(2).join(' ');
-  const payload = JSON.parse(payloadJson);
-  assert.ok(Array.isArray(payload.files), 'payload.files missing');
-  assert.equal(payload.files.length, 1);
-  const storedPath = payload.files[0];
-  assert.ok(typeof storedPath === 'string' && storedPath.startsWith('/'),
-    `not absolute: ${storedPath}`);
-  t.after(async () => { try { await unlink(storedPath); } catch { /* ignore */ } });
-
-  const got = await readFile(storedPath);
-  assert.deepEqual(Buffer.from(got), wantBytes);
-
-  const state = JSON.parse(await readFile(ws.statePath, 'utf-8'));
+  const state = await readState(statePath);
   assert.equal(state.submissions.length, 1);
-  assert.equal(state.submissions[0].id, 'upload-btn');
-  assert.deepEqual(state.submissions[0].payload.files, [storedPath]);
+  const entry = state.submissions[0];
+  assert.equal(entry.id, 'upload');
+  assert.ok(Array.isArray(entry.payload.files));
+  assert.equal(entry.payload.files.length, 1);
+  assert.equal(entry.payload.note, 'a quick note');
+
+  // The stored file should exist and contain what we sent.
+  const stored = entry.payload.files[0];
+  const storedContent = await readFile(stored, 'utf8');
+  assert.equal(storedContent, 'hello file');
+  // Stored path is absolute and includes the (sanitised) basename.
+  assert.ok(stored.startsWith('/'));
+  assert.ok(stored.endsWith('-receipt.txt'), `unexpected stored path: ${stored}`);
+
+  // SUBMIT line carries the file-bearing payload as the JSON tail.
+  assert.equal(emissions.length, 1);
+  const tail = emissions[0].slice('SUBMIT upload '.length);
+  const parsedTail = JSON.parse(tail);
+  assert.deepEqual(parsedTail.files, [stored]);
+  assert.equal(parsedTail.note, 'a quick note');
+
+  // Cleanup the stored upload (the agent owns lifecycle, but the test should
+  // not leak files into $TMPDIR/poke-uploads/).
+  await rm(stored, { force: true });
 });
 
-test('POST /submit (multipart) with no files yields empty files array, not null', async (t) => {
-  // Per the act-0cd3 fix mirrored in the Go and Python references: `files`
-  // must serialize as `[]` rather than `null` when the multipart body has
-  // no file parts.
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath, { btn: { label: 'Click', intent: 'click' } });
+test('POST /submit (multipart, no files) still produces files: []', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const boundary = 'AaB03x';
+  const body = buildMultipart(boundary, [
+    { name: 'id', value: 'upload' },
+    { name: 'note', value: 'no file attached' },
+  ]);
 
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const { body, contentType } = buildMultipart({ id: 'btn' }, []);
-  const resp = await fetch(srv.baseUrl + '/submit', {
+  const res = await fetch(base + '/submit', {
     method: 'POST',
-    headers: { 'Content-Type': contentType },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
     body,
   });
-  assert.equal(resp.status, 200);
+  assert.equal(res.status, 200);
 
-  const out = srv.captured.stdout.trim();
-  const payloadJson = out.split(' ').slice(2).join(' ');
-  const payload = JSON.parse(payloadJson);
-  assert.deepEqual(payload, { files: [] });
-  // And critically the serialization is `[]`, not `null`.
-  assert.ok(payloadJson.includes('"files":[]'), `payload JSON missing files:[]: ${payloadJson}`);
+  const state = await readState(statePath);
+  const entry = state.submissions[0];
+  assert.deepEqual(entry.payload.files, []);
+  assert.equal(entry.payload.note, 'no file attached');
 
-  const state = JSON.parse(await readFile(ws.statePath, 'utf-8'));
-  assert.deepEqual(state.submissions[0].payload, { files: [] });
+  const tail = emissions[0].slice('SUBMIT upload '.length);
+  assert.deepEqual(JSON.parse(tail).files, []);
 });
 
-test('POST /submit (multipart) carries extra text fields through to payload', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath, { feedback: { label: 'Send', intent: 'feedback' } });
+test('POST /submit (multipart) handles multiple files', async (t) => {
+  const { base, statePath } = await withServer(t);
+  const boundary = 'AaB03x';
+  const body = buildMultipart(boundary, [
+    { name: 'id', value: 'upload' },
+    { name: 'first', filename: 'a.txt', contentType: 'text/plain', value: 'AAA' },
+    { name: 'second', filename: 'b.txt', contentType: 'text/plain', value: 'BBB' },
+  ]);
 
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const { body, contentType } = buildMultipart(
-    { id: 'feedback', comment: 'looks good' },
-    [],
-  );
-  const resp = await fetch(srv.baseUrl + '/submit', {
+  const res = await fetch(base + '/submit', {
     method: 'POST',
-    headers: { 'Content-Type': contentType },
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
     body,
   });
-  assert.equal(resp.status, 200);
+  assert.equal(res.status, 200);
 
-  const out = srv.captured.stdout.trim();
-  const payload = JSON.parse(out.split(' ').slice(2).join(' '));
-  assert.deepEqual(payload.files, []);
-  assert.equal(payload.comment, 'looks good');
+  const entry = (await readState(statePath)).submissions[0];
+  assert.equal(entry.payload.files.length, 2);
+  const contents = await Promise.all(entry.payload.files.map((p) => readFile(p, 'utf8')));
+  assert.deepEqual(contents.sort(), ['AAA', 'BBB']);
+  await Promise.all(entry.payload.files.map((p) => rm(p, { force: true })));
 });
 
-test('POST /submit with unsupported content type returns 415', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath);
+// ---------------------------------------------------------------------------
+// Content-type and size policy
 
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const resp = await fetch(srv.baseUrl + '/submit', {
+test('POST /submit with urlencoded body is rejected (not a wire-accepted content type)', async (t) => {
+  const { base, statePath, emissions } = await withServer(t);
+  const res = await fetch(base + '/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'id=abc',
+    body: 'id=confirm&payload=null',
   });
-  assert.equal(resp.status, 415);
+  assert.ok(res.status >= 400 && res.status < 500, `unexpected ${res.status}`);
+  const state = await readState(statePath);
+  assert.equal(state.submissions.length, 0);
+  assert.equal(emissions.length, 0);
 });
 
-test('GET on unknown path returns 404', async (t) => {
-  const ws = await makeWorkspace();
-  t.after(() => ws.cleanup());
-  await writeFile(ws.htmlPath, '<html></html>');
-  await writeInitialState(ws.statePath);
-
-  const srv = await startServer(ws.statePath, ws.htmlPath);
-  t.after(() => srv.stop());
-
-  const resp = await fetch(srv.baseUrl + '/does-not-exist');
-  assert.equal(resp.status, 404);
+test('POST /submit with no content-type is rejected', async (t) => {
+  const { base } = await withServer(t);
+  const res = await fetch(base + '/submit', { method: 'POST', body: 'whatever' });
+  assert.ok(res.status >= 400 && res.status < 500, `unexpected ${res.status}`);
 });
 
-test('watchParentDeath skips polling when originalPpid <= 1', async () => {
-  // Mirrors TestWatchParentDeathSkipsWhenAlreadyInit in server_test.go: a
-  // sentinel ppid of 1 should make the watchdog return a no-op handle
-  // without scheduling any timer.
-  const fakeServer = {
-    closed: false,
-    close() { this.closed = true; },
-  };
-  const handle = watchParentDeath(fakeServer, 1, 10);
-  // Wait a couple of ticks to confirm no shutdown happens.
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.equal(fakeServer.closed, false, 'server should not have been closed');
-  handle.stop();
+// ---------------------------------------------------------------------------
+// Atomic write + concurrent submissions
+
+test('concurrent submissions do not lose entries', async (t) => {
+  const { base, statePath } = await withServer(t);
+  const N = 20;
+  const tasks = [];
+  for (let i = 0; i < N; i++) {
+    tasks.push(
+      fetch(base + '/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: 'confirm', payload: { i } }),
+      }),
+    );
+  }
+  const results = await Promise.all(tasks);
+  for (const r of results) assert.equal(r.status, 200);
+
+  const state = await readState(statePath);
+  assert.equal(state.submissions.length, N);
+  const seen = new Set(state.submissions.map((e) => e.payload.i));
+  for (let i = 0; i < N; i++) assert.ok(seen.has(i), `lost submission ${i}`);
+});
+
+test('atomicWriteJSON leaves a valid file on disk', async (t) => {
+  const dir = await mkdtemp(join(tmpdir(), 'poke-atomic-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  const path = join(dir, 'out.json');
+  await atomicWriteJSON(path, { hello: 'world', n: 42 });
+  const parsed = JSON.parse(await readFile(path, 'utf8'));
+  assert.deepEqual(parsed, { hello: 'world', n: 42 });
+  // No leftover temp file.
+  const entries = await import('node:fs/promises').then((m) => m.readdir(dir));
+  assert.deepEqual(entries, ['out.json']);
+});
+
+// ---------------------------------------------------------------------------
+// Unit-level: multipart parser and filename sanitiser
+
+test('parseMultipart parses a well-formed body', () => {
+  const boundary = 'XYZ';
+  const body = buildMultipart(boundary, [
+    { name: 'id', value: 'abc' },
+    { name: 'doc', filename: 'note.txt', contentType: 'text/plain', value: 'hello' },
+  ]);
+  const parts = parseMultipart(body, boundary);
+  assert.equal(parts.length, 2);
+  assert.equal(parts[0].name, 'id');
+  assert.equal(parts[0].filename, undefined);
+  assert.equal(parts[0].content.toString(), 'abc');
+  assert.equal(parts[1].name, 'doc');
+  assert.equal(parts[1].filename, 'note.txt');
+  assert.equal(parts[1].contentType, 'text/plain');
+  assert.equal(parts[1].content.toString(), 'hello');
+});
+
+test('extractBoundary handles quoted and bare boundaries', () => {
+  assert.equal(extractBoundary('multipart/form-data; boundary=AaB03x'), 'AaB03x');
+  assert.equal(extractBoundary('multipart/form-data; boundary="AaB03x"'), 'AaB03x');
+  assert.equal(extractBoundary('multipart/form-data; charset=utf-8; boundary=AaB03x'), 'AaB03x');
+  assert.equal(extractBoundary('multipart/form-data'), null);
+});
+
+test('sanitizeFilename strips directory components and unsafe chars', () => {
+  assert.equal(sanitizeFilename('../../etc/passwd'), 'passwd');
+  assert.equal(sanitizeFilename('Receipt 2026 (final).pdf'), 'Receipt_2026_final_.pdf');
+  assert.equal(sanitizeFilename(''), 'upload');
+  assert.equal(sanitizeFilename('/'), 'upload');
 });
