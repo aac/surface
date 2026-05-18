@@ -31,6 +31,7 @@ Claude loads `skills/poke/SKILL.md` and what it explicitly references; everythin
 | `skills/poke/references/hosted-example.md` | Cloudflare Worker + KV wire walkthrough — sibling to `wire-example.md`, for the hosted substrate. |
 | `skills/poke/examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `skills/poke/examples/server_test.go` | Tests for the Go reference. |
+| `skills/poke/examples/reveal/reveal.go` | Minimal inline-reveal example for Rule 5 (the surface owns the result). Click → /submit returns the reveal payload → page swaps it into an inline panel. Stdlib only. |
 | `skills/poke/examples/server.py` | Python stdlib reference, independently derived from the references (not Go-mirrored). Diverges from the Go sibling on operational details (port 8000, no parent-death watchdog, hard 32 MiB multipart cap) — same wire contract. |
 | `skills/poke/examples/test_server.py` | Tests for the Python reference. |
 | `skills/poke/examples/server.mjs` | Node reference (single-file ESM, stdlib only). Independently derived from the references. |

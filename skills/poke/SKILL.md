@@ -81,6 +81,8 @@ A few rules govern how the surface itself is shaped.
 
 **4. Confirmation messages describe what actually happens.** Don't invent agents, queues, or timing that don't exist — "X will pick this up next pass" reads as flattery rather than fact when there's no X and no scheduled pass. Name the real mechanism (file written, job queued, advisory only — loads on next session start) or just acknowledge the click ("saved", "recorded", "done"). Aspirational confirmation copy is a small lie that compounds when the user later acts on it.
 
+**5. The surface owns the result.** By default, render the result onto the surface itself — inline expansion, revealed panel, swapped content — not into chat. The /submit POST still fires so the agent learns the user's path, but the user-facing answer lives on the page. If the response bounces to chat, the poke is doing nothing the chat couldn't. The named exception is the escape-hatch free-text from Rule 2, where the response is genuinely unbounded and chat is the right medium.
+
 ## 7. Reference example
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4 in roughly 80 lines of stdlib HTTP. Read it for orientation, then re-implement in whatever substrate fits the environment. Go is convenient because it bootstraps v1's bundled binary and the stdlib is sufficient; the pattern doesn't require any particular language.
