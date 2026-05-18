@@ -6,10 +6,20 @@ name = "poke-example"
 main = "src/index.ts"
 compatibility_date = "2025-05-01"
 
-# Workers default to *.workers.dev for v0 hosted-substrate usage. Custom
-# domains are explicitly out of scope here — the unguessable session ID in
-# the URL is the access boundary (see references/security.md).
+# Workers default to *.workers.dev for v0 hosted-substrate usage. The shared
+# hosted endpoint `poke.aac.media` is bound as a Worker custom domain so any
+# project that wants a hosted poke can target one stable hostname; the
+# unguessable session ID in the URL remains the access boundary (see
+# references/security.md). The *.workers.dev URL stays live as a fallback.
 workers_dev = true
+
+# Custom-domain binding for the shared hosted endpoint. `custom_domain = true`
+# tells Cloudflare to provision the cert and route traffic without a
+# separate DNS-record + workers-route dance. The zone (`aac.media`) is on the
+# same account, so wrangler can manage this end-to-end.
+routes = [
+  { pattern = "poke.aac.media", custom_domain = true },
+]
 
 # Per-session state lives in KV. Keys:
 #   session:<id>:state -> JSON shape mirrors the local wire's state file

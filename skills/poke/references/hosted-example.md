@@ -7,8 +7,10 @@ lives at a `*.workers.dev` URL, persists per-session state in Cloudflare
 Workers KV, and exposes a `GET /<id>/poll?since=<cursor>` endpoint the agent
 polls on whatever cadence makes sense.
 
-A worked deployment ships at `examples/worker/`. This document describes the
-contract.
+A worked deployment ships at `examples/worker/` and runs at
+`https://poke.aac.media` as the shared hosted endpoint for Andrew's
+projects. The same worker is also reachable at its
+`*.workers.dev` fallback URL. This document describes the contract.
 
 ## Why hosted is different
 
@@ -112,7 +114,8 @@ Field roles that differ from the local wire:
   `POST /submit` against either the `x-poke-csrf` header or a
   `csrf_token` field in the JSON body.
 - **`created_at`** — provisioning timestamp. The pattern doesn't fix a
-  TTL; agents (or a sweeper Worker) decide when sessions expire.
+  TTL, but the reference worker self-cleans via KV `expirationTtl` (30
+  days, refreshed on every write — see "Session expiry" below).
 - **`at_ms`** — duplicate of `at` as integer milliseconds, present on
   submissions only. Lets `/poll?since=<ms>` filter cheaply without parsing
   RFC3339 strings on every request.
@@ -179,6 +182,22 @@ isn't suitable for binary blobs (per-value cap, no streaming, base64
 overhead). R2 is the right hosted answer; adding it is tracked as a
 follow-up issue.
 
+## Session expiry
+
+KV puts in the reference worker include `expirationTtl: 2_592_000` (30
+days). Every write (provision + each submission) refreshes the TTL, so an
+actively-used session keeps its full lifetime ahead of it; once writes
+stop, KV evicts the key automatically. No sweeper Worker, no manual `kv
+key delete`, no application-level scheduler.
+
+30 days is a deliberate over-shoot for the ephemeral-surface use case:
+human-paced approval flows resolve in minutes to hours, so 30d covers "I
+opened a poke before vacation, the user answered when they got back"
+without anyone thinking about GC. Tunable per-deployment via the
+`SESSION_TTL_SECONDS` constant in `src/index.ts`; KV's minimum is 60s.
+Anything shorter risks evicting a session mid-poll for an agent on a slow
+cadence.
+
 ## Drain — polling against `/poll`
 
 The hosted-substrate drain is a pull. The agent polls:
@@ -225,7 +244,7 @@ A one-affordance "Approve" round-trip against the deployed worker:
 ### 1. Agent provisions the session
 
 ```sh
-curl -s -X POST https://poke-example.andrew-cove-cloudflare.workers.dev/_provision \
+curl -s -X POST https://poke.aac.media/_provision \
   -H "authorization: Bearer $PROVISION_TOKEN" \
   -H "content-type: application/json" \
   -d '{
@@ -241,7 +260,7 @@ Response:
 ```json
 {
   "session_id": "004210469044a4da7415f6a6e4bb6f88",
-  "url": "https://poke-example.andrew-cove-cloudflare.workers.dev/004210469044a4da7415f6a6e4bb6f88/",
+  "url": "https://poke.aac.media/004210469044a4da7415f6a6e4bb6f88/",
   "csrf_token": "e757dd1794c9025653fe50ada3cc269c"
 }
 ```
@@ -260,7 +279,7 @@ The browser POSTs (relative `./submit` resolves against the page URL
 ```http
 POST /004210469044a4da7415f6a6e4bb6f88/submit HTTP/1.1
 Host: poke-example.andrew-cove-cloudflare.workers.dev
-Origin: https://poke-example.andrew-cove-cloudflare.workers.dev
+Origin: https://poke.aac.media
 Content-Type: application/json
 x-poke-csrf: e757dd1794c9025653fe50ada3cc269c
 
@@ -276,7 +295,7 @@ Worker validates origin + CSRF, appends to KV, responds `200`:
 ### 4. Agent drains
 
 ```sh
-curl -s "https://poke-example.andrew-cove-cloudflare.workers.dev/004210469044a4da7415f6a6e4bb6f88/poll?since=0"
+curl -s "https://poke.aac.media/004210469044a4da7415f6a6e4bb6f88/poll?since=0"
 ```
 
 Response:
@@ -314,9 +333,11 @@ The hosted substrate is where the loopback-bind safety net falls away.
 - **Multipart file uploads.** R2-backed; tracked separately.
 - **Magic-link or per-user auth.** The URL is the access control. If a
   deployment needs more, that's a different substrate.
-- **Session expiry / GC.** Sessions live until manually deleted via
-  `wrangler kv key delete`. Adding a TTL or sweeper Worker is straightforward
-  but not v0.
+- **Application-level session expiry / explicit "complete" signal.** The
+  reference worker piggybacks on KV `expirationTtl` for self-cleanup (see
+  "Session expiry" below). An explicit completion endpoint (`DELETE
+  /<session_id>`) and shorter user-driven TTLs are still out of scope for
+  v0.
 - **Cross-region consistency.** KV is eventually consistent. The polling
   drain absorbs this naturally (cursor advances when the new submission
   becomes visible); other shapes might not.

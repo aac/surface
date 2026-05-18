@@ -96,8 +96,22 @@ async function readState(env: Env, sessionId: string): Promise<SessionState | nu
   }
 }
 
+// Session state self-cleans after SESSION_TTL_SECONDS of inactivity. The TTL
+// is refreshed on every write (provision + each submission), so an active
+// session keeps its full lifetime ahead of it; once writes stop, KV evicts
+// the key automatically. 30 days is a deliberate over-shoot for the
+// ephemeral-surface use case: human-paced approval flows resolve in minutes
+// to hours, so 30d covers "I opened a poke before vacation, the user
+// answered when they got back" without anyone thinking about GC. Tunable
+// per-deployment by editing the constant; KV's minimum is 60s. Anything
+// shorter would risk evicting a session mid-poll for an agent on a slow
+// cadence.
+const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+
 async function writeState(env: Env, state: SessionState): Promise<void> {
-  await env.POKE_STATE.put(stateKey(state.session_id), JSON.stringify(state));
+  await env.POKE_STATE.put(stateKey(state.session_id), JSON.stringify(state), {
+    expirationTtl: SESSION_TTL_SECONDS,
+  });
 }
 
 // ---------------------------------------------------------------------------

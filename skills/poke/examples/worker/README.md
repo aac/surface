@@ -50,8 +50,13 @@ wrangler deploy
 ```
 
 `wrangler deploy` prints the deployed URL. Use that as the base in the curl
-commands above. The deployed worker uses `workers.dev` — no custom domain
-configured.
+commands above. The reference deployment binds the custom domain
+`poke.aac.media` (see `routes` in `wrangler.toml`); the `*.workers.dev`
+fallback stays live for direct addressing.
+
+KV puts include `expirationTtl` (30 days, refreshed on each write) so
+session state self-cleans without a sweeper. Tunable via the
+`SESSION_TTL_SECONDS` constant in `src/index.ts`.
 
 ## File map
 
