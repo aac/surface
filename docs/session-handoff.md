@@ -20,14 +20,14 @@ No other release work is outstanding — README is current for v0.1.0, LICENSE i
 
 **`act ready`:**
 - **act-3530** (epic, p2): multi-project autonomous-poke-delivery for out-of-chat Andrew. Two pieces: `poke.aac.media` as a shared hosted endpoint (custom-domain on the existing worker), and a communication channel (SMS via Twilio / push via Pushover / etc.) for shipping URLs to Andrew when he's not in a chat session. Trigger: real-use moment when Andrew wants to step away from chat with autonomous work running.
-- **act-86dd** (task, p3): add KV TTL (~30 days) on session-state puts in `examples/worker/src/index.ts`. Independent of everything; do anytime.
+- **act-86dd** (task, p3): add KV TTL (~30 days) on session-state puts in `skills/poke/examples/worker/src/index.ts`. Independent of everything; do anytime.
 
 **Asks (`ask list`):** none open. Both prior asks were closed as deferred via the dogfooded poke this session — R2 (no current use case) and bundled binary (waiting for pull-signal).
 
 ## Project key facts
 
 - **Worker live:** `https://poke-example.andrew-cove-cloudflare.workers.dev`. KV namespace `POKE_STATE` (id `5f70241b834d4e789d5b9c1272bcc659`). `PROVISION_TOKEN` rotated several times; whatever's current is fine.
-- **Four substrate impls:** Go (`examples/server.go`, the canonical reference), Python (`examples/server.py`, references-only-derived), Node (`examples/server.mjs`, references-only-derived), Rust (`examples/rust/`, references-only-derived). Wire envelope identical across all four; operational details diverge by design.
+- **Four substrate impls:** Go (`skills/poke/examples/server.go`, the canonical reference), Python (`skills/poke/examples/server.py`, references-only-derived), Node (`skills/poke/examples/server.mjs`, references-only-derived), Rust (`skills/poke/examples/rust/`, references-only-derived). Wire envelope identical across all four; operational details diverge by design.
 - **Substrate-agnostic claim is load-bearing.** Three independent references-only ports passed the wire-contract tests. Operational divergences (different ports, watchdog choices, body-cap policies) are the validation: the references constrain enough that the pattern survives independent re-derivation, without over-constraining operational choices.
 
 ## Things that survived this session into durable form

@@ -1,0 +1,8 @@
+{
+  "name": "poke",
+  "description": "Use when an agent needs ad-hoc structured input from a user via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking, drag-rank, drawing or annotation, structured forms, async approval gates, situations where the user isn't in chat and the outbound channel (email, SMS, push, paging) can only carry a URL. The agent generates an ephemeral page of opaque-ID affordances, ships the URL through whatever channel reaches the user, and autonomously drains submissions to react. Not for simple in-chat questions, durable apps or persistent products, or interactions the agent can self-resolve.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Andrew Cove"
+  }
+}

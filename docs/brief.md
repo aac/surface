@@ -200,10 +200,10 @@ v0 trusts that agents using poke will think about security in their own context.
 
 ## Reference example
 
-`examples/server.go` ships a ~80-line Go reference server demonstrating the wire example above. Runnable via:
+`skills/poke/examples/server.go` ships a ~80-line Go reference server demonstrating the wire example above. Runnable via:
 
 ```
-go run examples/server.go --state /tmp/poke-state.json --port 5173
+cd skills/poke && go run ./examples/server.go --state /tmp/poke-state.json --port 5173
 ```
 
 Agents read it for orientation and re-implement in whatever substrate fits their environment. Go because:
@@ -218,31 +218,44 @@ Other languages would also be fine; the choice is Go for the v1 trajectory, not 
 
 ```
 poke/
-├── SKILL.md                  # shipped: skill entry point
-├── references/               # shipped: lazy-loaded sections
-│   ├── pattern.md
-│   ├── wire-example.md
-│   ├── lifecycle.md
-│   └── security.md
-├── examples/                 # shipped: reference code
-│   └── server.go
+├── .claude-plugin/
+│   └── plugin.json           # packaging: Claude Desktop / Cowork plugin manifest
+├── skills/
+│   └── poke/                 # the skill bundle (harness-neutral)
+│       ├── SKILL.md          # shipped: skill entry point
+│       ├── references/       # shipped: lazy-loaded sections
+│       │   ├── pattern.md
+│       │   ├── wire-example.md
+│       │   ├── lifecycle.md
+│       │   ├── security.md
+│       │   └── hosted-example.md
+│       ├── examples/         # shipped: reference code
+│       │   ├── server.go
+│       │   └── …             # python / node / rust / worker siblings
+│       └── go.mod            # go module covering examples/
 ├── docs/                     # dev artifacts (not loaded by skill)
 │   ├── brief.md              # this document
-│   └── plan.md               # v0 implementation plan (next phase)
+│   └── plan.md               # v0 implementation plan
 ├── CLAUDE.md                 # conventions for agents working on poke itself
 ├── README.md                 # project intro for humans browsing
 ├── LICENSE
 └── .gitignore
 ```
 
+The skill bundle (`skills/poke/`) is harness-neutral — same bytes ship to every harness. The plugin manifest (`.claude-plugin/plugin.json`) is the Claude Desktop / Cowork packaging wrapper; future harnesses get their own wrapper at this layer without touching skill content.
+
 **Install:**
 
 ```
 git clone <url> ~/Workspace/poke
-ln -s ~/Workspace/poke ~/.claude/skills/poke
+
+# Claude Code CLI: skills-dir symlink
+ln -s ~/Workspace/poke/skills/poke ~/.claude/skills/poke
+
+# Claude Desktop / Cowork: install as plugin (driven by .claude-plugin/plugin.json)
 ```
 
-The repo root IS the skill. Claude only loads `SKILL.md` and what it explicitly references; `docs/`, `README.md`, `CLAUDE.md`, and `LICENSE` are for human readers and aren't part of the runtime skill bundle.
+Claude only loads `skills/poke/SKILL.md` and what it explicitly references; `docs/`, `README.md`, `CLAUDE.md`, `LICENSE`, and `.claude-plugin/` are for tooling and human readers and aren't part of the runtime skill bundle.
 
 ## Out of scope (deferred until real use signal)
 
