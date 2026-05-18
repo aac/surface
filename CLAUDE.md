@@ -21,6 +21,7 @@ These are the through-lines from the v0 design conversation. They override surfa
 
 - `docs/brief.md` — converged v0 design (pattern, wire example, lifecycle, skill structure, security stance, out-of-scope). Read before any design-semantics work.
 - `docs/plan.md` — task-by-task implementation plan (to be written; will mirror `ask`'s `plan-v1.md` shape).
+- `docs/decisions.md` — running log of substantive design choices and notable rejected proposals, with reasoning. Read before proposing changes to skill content or the core principles; check whether the proposal has already been considered. **Append a new entry whenever a substantive design choice is made — especially when a proposal is rejected on principle grounds — so the rationale doesn't have to be re-litigated.** Routine implementation choices and ticket-level work breakdowns stay out (those live in `act` history and commit messages); decisions.md is for design-semantics calls whose reasoning will still matter in six months. Reverse-chronological; new entries go at the top, under the "When to add an entry" preamble.
 
 ## v0 deliverable scope
 
