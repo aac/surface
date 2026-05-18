@@ -28,6 +28,12 @@ These are the through-lines from the v0 design conversation. They override surfa
 - Distribution: `git clone` into `~/Workspace/poke`; symlink to `~/.claude/skills/poke`.
 - Verification gate (v0 complete =): `examples/server.go` compiles and runs end-to-end against a curl'd submission; SKILL.md activates via the symlink (smoke test).
 
+## Versioning
+
+`skills/poke/SKILL.md` frontmatter carries a `version:` field. `.claude-plugin/plugin.json` carries the same `version`. Andrew uses these to eyeball-compare what's loaded in Cowork / Claude Desktop against what's in this repo without diffing the full bytes.
+
+**Rule:** any landing that changes skill content (`skills/poke/SKILL.md`, anything under `skills/poke/references/`, anything under `skills/poke/examples/`) bumps **both** `version:` strings together. Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
+
 ## Project trackers (active)
 
 Two trackers run alongside each other on this project. They serve distinct audiences and should not be conflated.
