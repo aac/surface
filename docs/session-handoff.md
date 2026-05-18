@@ -1,7 +1,7 @@
 # poke — Session Handoff
 
 **Date:** 2026-05-18 (UTC) — end of decisions-log session
-**Branch:** `main` @ HEAD (uncommitted: `CLAUDE.md`, `docs/decisions.md`)
+**Branch:** `main` @ `c614ff3` (tree clean)
 **Status:** v0 still shipped and validated; this session was a docs-only addition. Release path unchanged (still gated on act's contributor-local migration).
 
 ## What landed this session
@@ -9,13 +9,6 @@
 - **`docs/decisions.md` created.** Running log of substantive design choices and notable rejected proposals, with reasoning. Reverse-chronological. Seeded with today's rejection (Tailscale-specific docs + a "Choosing a substrate" property frame in pattern.md — both rejected after adversarial review) plus 6 backfilled historical decisions covering: HTTP-status relaxation (act-087a), references-only test = "working poke-like thing" (act-6fb6), harness-neutral packaging (commit `a79f80c`), repo restructure (act-63fb), v0-ships-skill-only, poke-stands-alone, security-in-its-own-reference.
 - **`CLAUDE.md` updated.** Added `docs/decisions.md` pointer in "Strategic docs" with a rule to append new entries when substantive design choices land or proposals are rejected on principle grounds. CLAUDE.md is auto-loaded into every session, so the rule fires without anyone having to remember it.
 - **No skill content changed.** Nothing under `skills/poke/SKILL.md`, `references/`, or `examples/` touched — version field unchanged in both SKILL.md and plugin.json per the lockstep rule.
-
-## Uncommitted
-
-- `M CLAUDE.md` — Strategic-docs addition
-- `?? docs/decisions.md` — new file
-
-Both explained by this session. No version bump needed.
 
 ## Release readiness (unchanged from prior handoff)
 
