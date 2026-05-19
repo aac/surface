@@ -1,3 +1,8 @@
+---
+status: historical
+note: v0 implementation plan — executed and complete. Preserved as a record of how v0 was built. Do not execute as forward-looking work. For current state see docs/session-handoff.md; for strategic direction see docs/brief.md and CLAUDE.md.
+---
+
 # poke v0 Implementation Plan
 
 > **Historical note (post-bundle-restructure):** This plan was written and executed against a flat layout (`SKILL.md`, `references/`, `examples/`, `go.mod` at repo root). After act-63fb landed, the skill bundle moved under `skills/poke/` and a `.claude-plugin/plugin.json` was added at the root so the bundle installs as a Claude Desktop / Cowork plugin. All in-repo paths in the tasks below should be read as `skills/poke/<old-path>` (e.g. `SKILL.md` → `skills/poke/SKILL.md`, `references/pattern.md` → `skills/poke/references/pattern.md`, `examples/server.go` → `skills/poke/examples/server.go`). The install symlink target changed from `~/Workspace/poke` to `~/Workspace/poke/skills/poke`. The tasks themselves are preserved verbatim as a record of how v0 was built.

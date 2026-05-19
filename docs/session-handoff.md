@@ -1,13 +1,20 @@
 # poke — Session Handoff
 
-**Date:** 2026-05-18 (UTC) — end of decisions-log session
-**Branch:** `main` @ `c614ff3` (tree clean)
-**Status:** v0 still shipped and validated; this session was a docs-only addition. Release path unchanged (still gated on act's contributor-local migration).
+**Date:** 2026-05-18 (UTC) — end of late-day hygiene session (after decisions-log session earlier same day)
+**Branch:** `main` @ `c614ff3` plus 2 uncommitted edits (`CLAUDE.md`, `docs/plan.md`)
+**Status:** v0 still shipped and validated. This session's poke-side work was minor doc hygiene (no skill content changed). Release path unchanged (still gated on act's contributor-local migration).
 
-## What landed this session
+## What landed this (late) session
+
+- **`docs/plan.md` marked historical via frontmatter.** Added `status: historical` frontmatter; v0 plan was executed and complete, preserved as record of how v0 was built. Existing "Historical note (post-bundle-restructure)" callout retained below the frontmatter. **Uncommitted.**
+- **`CLAUDE.md` Strategic-docs line refreshed.** The line for `docs/plan.md` previously read "(to be written; will mirror ask's plan-v1.md shape)" — stale since the plan exists and is executed. Now reflects the actual state. **Uncommitted.**
+- **Deferred ticket-filing note from prior handoff resolved as no-action.** Verified during the session sweep; poke's "stands alone" property is intact and no poke-side changes are needed. Misfired ticket `act-fbd4` was filed-and-deleted during the verification; tombstone is in `.act/` history.
+- **Principle restated for poke's own docs going forward:** poke describes only poke's substrate; cross-skill compositions (delivery, queuing, anything sibling) are the agent's job, not properties to document here. This handoff was scrubbed of cross-skill references on that basis.
+
+## What landed earlier the same day (decisions-log session — kept for context)
 
 - **`docs/decisions.md` created.** Running log of substantive design choices and notable rejected proposals, with reasoning. Reverse-chronological. Seeded with today's rejection (Tailscale-specific docs + a "Choosing a substrate" property frame in pattern.md — both rejected after adversarial review) plus 6 backfilled historical decisions covering: HTTP-status relaxation (act-087a), references-only test = "working poke-like thing" (act-6fb6), harness-neutral packaging (commit `a79f80c`), repo restructure (act-63fb), v0-ships-skill-only, poke-stands-alone, security-in-its-own-reference.
-- **`CLAUDE.md` updated.** Added `docs/decisions.md` pointer in "Strategic docs" with a rule to append new entries when substantive design choices land or proposals are rejected on principle grounds. CLAUDE.md is auto-loaded into every session, so the rule fires without anyone having to remember it.
+- **`CLAUDE.md` updated** with `docs/decisions.md` pointer in Strategic docs + a rule to append new entries when substantive design choices land or proposals are rejected on principle grounds.
 - **No skill content changed.** Nothing under `skills/poke/SKILL.md`, `references/`, or `examples/` touched — version field unchanged in both SKILL.md and plugin.json per the lockstep rule.
 
 ## Release readiness (unchanged from prior handoff)
@@ -26,7 +33,7 @@ Critical path unchanged:
 **`act ready`:** empty.
 **Asks (`ask list`):** none open.
 
-Outstanding work is still just the release-path sequence (gated on act migration) and whatever falls out of the reach brief-generating session.
+Outstanding work is just the release-path sequence (gated on act migration).
 
 ## Project key facts (unchanged from prior handoff)
 
@@ -36,11 +43,6 @@ Outstanding work is still just the release-path sequence (gated on act migration
 - **Substrate-agnostic claim is load-bearing.** Three independent references-only ports passed wire-contract tests; operational divergences are the validation.
 - **Strategic docs:** `docs/brief.md` (converged design), `docs/decisions.md` (running rejected-paths log — new this session), `docs/plan.md` (not yet written).
 
-## Sibling-tool context (`reach`, unchanged from prior handoff)
-
-- Out-of-chat delivery is `reach`'s domain, not poke's. Brief-generating session is in a separate repo.
-- Integration not in flight; when reach reaches integration-ready state, file a poke ticket for "agents minting poke URLs can compose with reach to ship them out of chat."
-
 ## Things that survived this session into durable form
 
 - `docs/decisions.md` exists with seed + backfill
@@ -49,13 +51,11 @@ Outstanding work is still just the release-path sequence (gated on act migration
 ## Notes for next session
 
 - **Security hook false-positive on JS/MJS files** persists.
-- **v0.1.0 tag placement** still out-of-date relative to repo restructure.
-- **reach repo location** — TBD when Andrew reports back from that session.
+- **`v0.1.0` tag placement** still out-of-date relative to repo restructure.
 
 ## Reading order for next session
 
 1. This file
 2. `git log [last-handoff-sha]..HEAD` for what landed since
-3. `docs/decisions.md` (new) — design history before proposing changes to skill content or core principles
+3. `docs/decisions.md` — design history before proposing changes to skill content or core principles
 4. `act ready` and `ask list` for current state
-5. If reach work is the focus: switch repos
