@@ -4,7 +4,11 @@
 
 ## Install
 
-The repo is a Claude Code plugin: `.claude-plugin/plugin.json` at the root declares the plugin, and the actual skill bundle lives under `skills/poke/`. Two install paths:
+The repo is packaged for both Claude Code and Codex. The actual skill bundle lives under `skills/poke/` and is harness-neutral — the same skill bytes load on either harness. Only the packaging wrapper differs.
+
+### Claude Code
+
+`.claude-plugin/plugin.json` at the root declares the Claude plugin. Two install paths:
 
 **Claude Code CLI (skills-dir symlink):**
 
@@ -15,7 +19,34 @@ ln -s ~/Workspace/poke/skills/poke ~/.claude/skills/poke
 
 **Claude Desktop / Cowork (plugin install):** install the plugin from this repo so it appears in the customize view. Plugin discovery is driven by `.claude-plugin/plugin.json` at the repo root; the skill is auto-discovered under `skills/poke/`.
 
-Claude loads `skills/poke/SKILL.md` and what it explicitly references; everything else in this repo is for humans reading the project.
+### Codex
+
+`.codex-plugin/plugin.json` at the root declares the Codex plugin. Skill bundle discovered under `skills/poke/`.
+
+**Codex CLI (skills-dir symlink):**
+
+```sh
+git clone <repo-url> ~/Workspace/poke
+ln -s ~/Workspace/poke/skills/poke ~/.codex/skills/poke
+```
+
+**Plugin install:** point Codex at this repo; the `.codex-plugin/plugin.json` manifest carries the skill pointer and metadata.
+
+**Codex lifecycle primitive mapping.** The mechanism categories in `skills/poke/references/lifecycle.md` (push-stream, polling, FS watch, hosted poll, webhook) are harness-neutral; primitives differ:
+
+| Category | Claude Code | Codex |
+|---|---|---|
+| Push-stream on subprocess stdout | `Bash(run_in_background)` + `Monitor` | Long-running `exec_command` session + `write_stdin`/output polling |
+| Scheduled wake-ups for cadence | `ScheduleWakeup`, `/loop` | Heartbeat automations |
+| FS drop-directory watch | `fswatch`/`inotifywait`/polling | Same — OS-level primitives are harness-neutral |
+| Hosted poll | `WebFetch` / HTTP | `WebFetch` / HTTP — same |
+| Tear-down | `KillShell` | Codex session/process-group teardown |
+
+A poke that requires the user to come back to chat and say "I clicked it" has failed the pattern. Any Codex adaptation must include a real drain path (long-running stdout polling, drop-directory polling, heartbeat-driven re-check, hosted poll, or webhook where available).
+
+### What loads
+
+Each harness loads `skills/poke/SKILL.md` and what it explicitly references; everything else in this repo is for humans reading the project.
 
 ## What's in this repo
 
@@ -41,11 +72,12 @@ Claude loads `skills/poke/SKILL.md` and what it explicitly references; everythin
 
 Three of the four local references (Python, Node, Rust) were built without their authors reading the existing siblings — they derived the impl from `skills/poke/references/` alone. The operational divergences between them (different ports, different watchdog choices, different error-status policies) are the validation: the pattern survives independent re-derivation across multiple substrates.
 
-**Packaging** (Claude Desktop plugin wrapper, not loaded as part of the skill):
+**Packaging** (harness-specific plugin wrappers, not loaded as part of the skill):
 
 | Path | Purpose |
 |---|---|
-| `.claude-plugin/plugin.json` | Plugin manifest. Makes the bundle installable as a Claude Desktop / Cowork plugin; skills under `skills/` are auto-discovered. Harness-neutral skill content stays under `skills/poke/`. |
+| `.claude-plugin/plugin.json` | Claude plugin manifest. Makes the bundle installable as a Claude Desktop / Cowork plugin; skills under `skills/` are auto-discovered. |
+| `.codex-plugin/plugin.json` | Codex plugin manifest. Sibling to the Claude manifest with the same `skills/` pointer and lockstep `version`. Harness-neutral skill content stays under `skills/poke/`. |
 
 **For humans** (not loaded by Claude):
 
