@@ -22,3 +22,4 @@ __pycache__/
 .act/index.db
 .ask/
 .act/
+.claude/settings.local.json
