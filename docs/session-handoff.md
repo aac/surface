@@ -1,12 +1,27 @@
 # poke — Session Handoff
 
-**Date:** 2026-05-23 (UTC) — end of orchestrate pass that landed the arc-rsv2 umbrella brief
-**Branch:** `main` @ `448d402` (one untracked file: `docs/v2-redesign-handoff.md` — present from before this session, not committed)
-**Status:** v0 still shipped and validated. This session dispatched and merged the arc-rsv2 design brief. Three follow-on review tickets are now `act ready`. Release path unchanged (still gated on act's contributor-local migration).
+**Date:** 2026-05-23 (UTC) — post-feedback revision of arc-rsv2 umbrella brief
+**Branch:** `main` (uncommitted changes to `docs/arc-reach-surface-v2-design.md` and `docs/decisions.md`)
+**Status:** v0 still shipped and validated. Andrew reviewed the arc-rsv2 design brief and provided feedback; this session incorporated 18 feedback items into the brief and recorded 8 substantive design decisions. Three review tickets remain `act ready`. Release path unchanged.
 
 ## What landed this session
 
-- **`docs/arc-reach-surface-v2-design.md` committed (`448d402`, 585 lines).** Umbrella design brief for `arc-reach-surface-v2` (reach + poke/surface v2). Closed `act-108bd1`. Substantive positions taken — Andrew is reviewing the brief and will feed back before the review tickets are picked up. Key calls:
+- **Andrew's feedback incorporated into `docs/arc-reach-surface-v2-design.md`.** 18 feedback items processed. Eight substantive design calls recorded in `docs/decisions.md`. Key changes:
+  - **Team split from lifetime axis** — `team` is now a recipient `kind`, orthogonal to `lifetime` (ephemeral/enduring).
+  - **Direct-KV-write not blessed** — flagged for investigation instead of being promoted to a documented happy path. CSRF/state-contract concerns need resolution.
+  - **Third-party security: strong default + operator-trust override** — the default posture ("untrusted") is kept strong, but operators can declare trusted collaborators for instruction-bearing surfaces.
+  - **P1 trusts the agent more** — no longer enumerates all decision axes; gives one example, trusts the agent to identify others.
+  - **Shared env path fully deferred** — `~/.aac-env/` dropped; both path and schema deferred to follow-on arc.
+  - **Surface version 0.1.0** — new skill, new version line, not 0.2.0.
+  - **Credential retrieval from secure storage is optimal** — keychain/vault access through documented bounded paths is encouraged, not avoided.
+  - **Personal identifiers excluded from produced skills/docs.**
+  - **Reach delivers any shape, not just URLs** — send signature uses `payload` instead of `url`.
+  - **Cross-references include explicit skill paths** and note that agents can open URLs in the user's browser for in-session use.
+  - **Recipient IDs are agent-generated slugs**, not hardcoded identifiers.
+  - **One-off-friend walkthrough simplified** — agent infers and acts instead of asking about lifetime semantics.
+  - **Recipients can be agents** — the language notes this as a natural extension without reshaping the v2 design.
+
+- **Prior session's key calls (still hold unless overridden above):**
   - Principles: 9 → 8 (P8 merged into P1, P9 chat-back-channel rejected as strawman and demoted into security model, P9' harness-neutral packaging restored from existing core principles).
   - Q1 separable channel/recipient model; current composite shape preserved as a degenerate case.
   - Q2 teams unified under recipient-descriptor `## Delivery` section.
@@ -52,7 +67,9 @@ Local `main` is one commit ahead of where prior sessions left it (`448d402`). No
 
 ## Notes for next session
 
-- **Andrew is reviewing the arc-rsv2 brief and will feed back before the three review tickets are dispatched.** Don't auto-dispatch them on a casual `/orchestrate` run if Andrew is still mid-review; check with him.
+- **Feedback is incorporated; review tickets can be dispatched.** The three review tickets (`act-fe5699`, `act-f1b8f2`, `act-524eee`) are ready for dispatch. Reviewers should read the updated brief with awareness that it was revised after the initial commit.
+- **Changes are uncommitted.** `docs/arc-reach-surface-v2-design.md` and `docs/decisions.md` have uncommitted revisions from the feedback incorporation. Commit before dispatching review tickets.
+- **Direct-KV-write investigation** is a new prerequisite surfaced by this feedback round. The implementation plan for surface v2 needs to settle the provisioning path before building the hosted-substrate docs.
 - **Security hook false-positive on JS/MJS files** persists.
 - **`v0.1.0` tag placement** still out-of-date relative to repo restructure.
 - **`docs/v2-redesign-handoff.md` is untracked.** Was untracked before this session, untracked now. Decide whether to commit it (it's the historical trigger doc the brief was built against) or leave as scratch.
@@ -61,6 +78,6 @@ Local `main` is one commit ahead of where prior sessions left it (`448d402`). No
 
 1. This file
 2. `git log 2d61dbb..HEAD` for what landed since last handoff
-3. `docs/arc-reach-surface-v2-design.md` — the brief itself (it's the live design document)
-4. `docs/decisions.md` — design history before proposing changes to skill content or core principles
+3. `docs/arc-reach-surface-v2-design.md` — the brief itself (it's the live design document, now revised with feedback)
+4. `docs/decisions.md` — design history including the 2026-05-23 feedback-round entry
 5. `act ready` and `ask list` for current state

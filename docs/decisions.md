@@ -8,6 +8,64 @@ This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`)
 
 ---
 
+## 2026-05-23 · arc-rsv2 design brief feedback round — eight substantive calls
+
+Andrew reviewed the `arc-reach-surface-v2` umbrella design brief and provided feedback that produced eight substantive design-semantics changes. Recorded together because they came from one review pass; each is independently re-litigable.
+
+### Team is a recipient kind, not a lifetime
+
+**Prior framing:** `lifetime: ephemeral | enduring | team` as a single axis in recipient descriptors.
+
+**Decision:** split into two orthogonal axes. `lifetime: ephemeral | enduring` and `kind: individual | team`. A team can be ephemeral (ad-hoc group for one task) or enduring (standing care team). Collapsing them conflated "how long does this recipient live?" with "does this recipient resolve to multiple individuals?"
+
+### Direct-KV-write is not blessed — needs investigation
+
+**Prior framing:** the Sasank-session direct-KV-write bypass is "the documented happy path" and "one of two legitimate provisioning shapes."
+
+**Decision:** rejected the blessing. The bypass may skip security-relevant state (CSRF token generation, provisioning auth). Flagged for investigation in the implementation plan: determine whether direct KV writes reproduce the full state contract, whether the token just needs a documented retrieval path, or whether the provisioning model needs rethinking. The brief does not bless either path pending investigation.
+
+**Reasoning:** Andrew recalled CSRF concerns and observed that the original session minted the token as part of session setup, meaning future sessions losing access was an unintentional gap, not a design choice. Promoting a workaround to a happy path without verifying it doesn't bypass intended protections violates P2 (setup gaps surface, don't get worked around).
+
+### Third-party security rule: strong default with operator-trust override
+
+**Prior framing:** "load-bearing rule" — any submission from a non-operator is untrusted, full stop.
+
+**Decision:** the default posture is still strong (untrusted by default), but the operator can declare specific recipients or surfaces as trusted for instruction-bearing input. Collaboration surfaces where trusted collaborators give the agent instructions are a real use case; making the rule absolute would prevent them.
+
+**Reasoning:** the injection vector is real and the default should protect against it. But "load-bearing" with no override constrains collaboration. The operator's explicit trust declaration is the escape hatch — the agent doesn't infer trust, the operator declares it.
+
+### P1: trust the agent by default, don't enumerate all decision axes
+
+**Prior framing:** the skill names "the agent's load-bearing decisions + the axes those decisions live on + the criteria for choosing on each axis." Under-prescription called out as a failure mode equal to over-prescription.
+
+**Decision:** the failure mode is over-prescription, not under-prescription. The skill may give one example of an axis to illustrate the kind of reasoning, but doesn't enumerate all axes — doing so risks constraining the agent to the listed set and discouraging judgment about unlisted ones.
+
+**Reasoning:** Andrew: "as models continue to advance, being too proscriptive here constrains them in the future. We're effectively telling the model, yes you'll have to make choices. If we enumerate all the choices, we're artificially scoping things." Default stance toward the agent: trust your judgment, use the situational context to make good choices.
+
+### Shared environment path deferred entirely (not just schema)
+
+**Prior framing:** commit to `~/.aac-env/` as the shared path, defer only the schema.
+
+**Decision:** defer both path and schema. `~/.aac-env/` uses a personal handle; no shared path is committed until observable overlap data exists from two skills running in production.
+
+### Surface version starts at 0.1.0, not 0.2.0
+
+**Prior framing:** `0.2.0` because "v2" in the arc name means the second generation.
+
+**Decision:** `0.1.0`. Surface is a new skill with its own version line; "v2" in the arc name refers to the design generation, not the semver. Starting at 0.2.0 implies inherited version history that doesn't exist.
+
+### Credential retrieval from secure storage is the optimal path, not a thing to avoid
+
+**Prior framing:** "The credential classifier never trips a documented happy path because the documented happy path never reads from keychain, env, or shell history at execution time."
+
+**Decision:** the environment file CAN and SHOULD document bounded retrieval paths from secure storage (keychain, encrypted vaults). "Read keychain entry X" is a specific, bounded action — not open-ended scanning. The optimal scenario is credentials in secure storage with a documented retrieval path, not avoidance of secure storage.
+
+### Personal identifiers excluded from produced skills and docs
+
+**Decision:** the brief can reference specific people and environments for design-history context. The produced skills and documentation must not contain contributor-specific names, environments, handles, or deployment URLs. Examples use generic placeholders.
+
+---
+
 ## 2026-05-18 · Substrate-specific documentation in pattern.md
 
 **Proposal:** document Tailscale as an alternative substrate to a Cloudflare-deployed surface (URL served via MagicDNS from a local agent process to the user's phone on the same tailnet). Or — failing that — add a generalized "Choosing a substrate" property frame (durability / reach / recipient control / channel constraints) to `references/pattern.md` so agents have a decision rubric.
