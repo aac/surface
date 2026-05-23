@@ -26,7 +26,7 @@ What the brief lands:
 - **Environment substrate.** Per-skill defaults, shared convention deferred (Q3). v2 of each skill ships with per-skill defaults (`~/.reach/environment.md`, `~/.surface/environment.md`). A shared cross-skill environment location is **a follow-on arc**, not this one — the path and schema are both deferred until two skills are running in production and the overlap is observable. Both skills depend on the *file convention*, not on an "environment" skill.
 - **Cross-reference.** "Surface is *one example of* a thing reach can deliver; reach is *one example of* a way to deliver a surface" — kept, with the framing pinned that *any* tool that mints an input URL slots in as "another surface-shaped thing" and *any* tool that ships outbound to a recipient slots in as "another reach-shaped thing." The cross-reference language treats each skill as one instance of a broader category, not as the other's required partner. Each skill's cross-reference includes an explicit path to the other (`~/.claude/skills/surface/`, `~/.claude/skills/reach/`) so agents encountering one skill can locate the other without prior knowledge.
 - **Multi-recipient & team semantics.** First-class. Recipient descriptors have explicit lifetimes (`ephemeral`, `enduring`) and an optional `kind: team` designation. Ephemeral recipients are minted in-conversation, optionally promoted to enduring after the fact, and may be discarded immediately. Teams are a *kind* of recipient, not a lifetime — a team can be ephemeral or enduring. The `imessage to a friend once` case stops being a judgment call.
-- **Third-party security.** The current "free-text content is untrusted" rule in `skills/poke/references/security.md` is correct but framed for the single-user-loopback case. The new surface skill promotes this rule with explicit framing: **by default, any submission from a recipient who is not the agent's operator is untrusted free-text input.** This is the default posture, not an absolute — the operator can declare that specific recipients are trusted (e.g., collaborators who should be able to give the agent instructions through the interface). The skill names the default, the threat model, and a concrete attack walkthrough; the agent decides when operator-declared trust overrides the default. (§F.)
+- **Third-party security.** The current "free-text content is untrusted" rule in `skills/poke/references/security.md` is correct but framed for the single-user-loopback case. The new surface skill promotes this rule with explicit framing: **by default, any submission from a recipient who is not the agent's operator is untrusted free-text input.** The operator can declare specific recipients as trusted — and trusted recipients' free-text CAN be treated as instructions within the surface's scope. The collaboration trust model (multiple trusted recipients submitting instructions) is native to v2 surface. The skill names the default posture, the trust override, the threat model, and a concrete attack walkthrough. (§F.)
 - **Setup vs execution split.** v2 splits credential discovery from credential recall. Setup writes a per-skill `environment.md` recording what was found and where. Execution reads only `environment.md`. The documented happy path avoids credential-store scanning at execution time — but this doesn't mean credentials can't live in secure storage (keychain, encrypted vaults). The environment file can include a documented, bounded retrieval path (e.g., "read key X from keychain entry Y") which is a specific named lookup, not the open-ended scanning that triggers classifiers. (§G.)
 - **Process & packaging.** New directories alongside old (`skills/surface/`, `~/Workspace/reach/skills/reach-v2/`). Lockstep version bumps. Old skills stay live until dogfood validates the new ones; cutover is a separate reviewed step. (§H.)
 
@@ -177,20 +177,24 @@ The handoff flagged this as a sidebar. The brief decides: **ship per-skill, defe
 
 **Why defer both path and schema:** the shared substrate has real DRY value (both skills want to know "is wrangler installed?"), but specifying it now would mean designing-without-pull-signal — we don't yet have two skills *running in production* whose overlap we can observe. v2 ships per-skill; when the overlap becomes observable, a follow-on arc picks the shared location and schema together. (Same principle as v0 deferring a CLI: "ship the narrow shape, grow based on real usage.")
 
-### Q4. Cross-reference language between the two skills. **Position: each is "one instance of a broader category"; pinned phrasing below.**
+### Q4. Cross-reference language between the two skills. **Position: each is "one instance of a broader category"; pinned constraints, not exact prose.**
 
-The principle is in §A.P5. The pinned phrasing:
+The principle is in §A.P5. The brief pins **constraints** for the cross-references; SKILL.md drafters write context-appropriate sentences that satisfy them.
 
-- In `reach`'s SKILL.md, when introducing the "deliver content" case: *"A common case is delivering a URL minted by another tool — for example, a surface (`~/.claude/skills/surface/`), a structured-input page, or any other input-URL-minting tool. But reach delivers payloads of any shape — a status message, a file, a notification — not just URLs. Reach has no opinion about what it's delivering."*
-- In `surface`'s SKILL.md, when introducing the "deliver the URL to the user" step: *"The URL needs to reach the user. If the user is in chat, the agent can paste it directly or open it in the user's browser. If the user is away from chat, the agent uses whichever outbound channel reaches them — `reach` (`~/.claude/skills/reach/`) navigates channel selection based on the contributor's environment and preferences; if reach isn't available, the agent uses email, iMessage, SMS, or whatever channel it has directly."*
+**Pinned constraints:**
 
-**Notes on the phrasing:**
+1. Each cross-reference uses the generic "one instance of a broader category" framing — surface is one input-URL-minting tool among many; reach is one outbound-delivery substrate among many.
+2. Each cross-reference includes the explicit skill path (`~/.claude/skills/surface/`, `~/.claude/skills/reach/`) so agents encountering one can locate the other.
+3. Each cross-reference is placed in the `When to use` or `Examples` section — never in "What this is."
+4. Reach is not framed as URL-specific. Reach delivers payloads of any shape — messages, files, URLs, notifications.
+5. In-session delivery notes that the agent can open the URL in the user's browser, not just paste it.
+6. Reach is the preferred path for channel navigation when it's available. Direct send (osascript, sendmail) is the fallback when reach isn't installed.
 
-- **Reach is not URL-specific.** Reach delivers things of any shape. The cross-reference should not constrain it to "deliver a URL."
-- **In-session delivery can go further than paste.** When the agent knows the user is present, opening the URL in their browser is a natural step beyond pasting — the agent has the tools to do this.
-- **Reach is the preferred path for channel navigation**, not just one of several equivalent options. If a situation arises where sending directly (via osascript, sendmail, etc.) is preferred over reach, that's signal of a deficiency in reach, not validation of the direct path. The exception is when reach isn't installed — then direct is the fallback.
+**What's left to SKILL.md drafters:** the exact wording. The constraints above are the pass/fail criteria; the prose that satisfies them is an authoring decision, not a brief decision.
 
-The shape is **named example, not required partner.** Each cross-reference is one bullet point in the *examples* section, not a setup prerequisite, not a sentence in the "what this is" section. Each cross-reference includes the explicit skill path so agents encountering one can locate the other. Future tools that mint input URLs or new delivery channels slot into the *example list*, not into the wire.
+The shape is **named example, not required partner.** Each cross-reference is one bullet point in the *examples* section, not a setup prerequisite. Future tools that mint input URLs or new delivery channels slot into the *example list*, not into the wire.
+
+**Anti-patterns:** forward dependency ("load surface before using reach"), URL-only framing (reach delivers more than URLs). See §D for the structural shape.
 
 ### Q5. Substrate survey as a first-class step in surface v2. **Position: yes, but as a setup-time step that writes to the environment file — not a per-invocation step.**
 
@@ -269,7 +273,7 @@ The general pattern (generalize away from specific tokens; record provisioning p
 
 ## D. Skill cross-reference shape
 
-The principle is in §A.P5; the language is in §B.Q4. This section pins the *structural* shape, not the prose.
+The principle is in §A.P5; the constraints are in §B.Q4. This section pins the *structural* shape.
 
 **Where each skill mentions the other:**
 
@@ -277,10 +281,10 @@ The principle is in §A.P5; the language is in §B.Q4. This section pins the *st
 - **In the `Examples`/illustrative section**, each skill walks one complete example using the other. Surface's example walks "surface + reach to deliver the URL to a user away from chat." Reach's example walks "agent has a surface URL minted elsewhere and ships it via reach."
 - **In `references/`**, each skill has *no* dependency on the other — neither skill loads the other's reference docs.
 
-**What's pinned, what's left to the agent:**
+**What's pinned, what's left to SKILL.md drafters:**
 
-- Pinned: the existence of the cross-reference, the explicit paths (`~/.claude/skills/surface/`, `~/.claude/skills/reach/`), the framing (each is "one instance of a broader category"), the placement (when-to-use + examples, never in §1 "what this is").
-- Left to the agent: the exact wording in any given invocation; whether to load both skills (yes, when both are needed; no, when only one is); the orchestration of the two.
+- Pinned constraints (see §B.Q4 for the full list): generic "one instance of a broader category" framing, explicit skill paths, placement in when-to-use/examples only, reach is not URL-specific, in-session delivery can open the browser, reach is preferred over direct send when available.
+- Left to drafters: the exact prose that satisfies these constraints. The brief pins pass/fail criteria, not sentences.
 
 **Anti-pattern to avoid:** **forward dependency.** Reach's SKILL.md must not say "load surface before using reach" or "surface is the canonical way to mint a reply URL." That re-creates the tight bundle the handoff is trying to break.
 
@@ -342,6 +346,7 @@ Kind:
 - Default recipient is `self` (preserves current reach behavior). If no recipient is named, reach sends to `self`.
 - Multi-recipient: agent passes a list of recipient slugs, reach iterates per recipient, applying each recipient's preferences (channel ordering, quiet hours overrides if any).
 - Team recipient: agent passes one team slug, reach reads the descriptor's delivery, iterates if fan-out or sends once if shared-channel.
+- **Partial delivery.** Multi-recipient sends can partially fail. The agent must know per-recipient delivery outcomes — which recipients received the message and which did not. Details of the outcome shape are deferred to the implementation plan, but the requirement is fixed: silent partial failure (where the agent can't distinguish "delivered to everyone" from "delivered to 3 of 5") is not acceptable.
 
 ### The one-off-friend case under the new shape
 
@@ -381,11 +386,27 @@ The current `skills/poke/references/security.md` covers the trust boundary for f
 
 ### The operator-trust override
 
-The default is strong because the injection vector is real (see attack walkthrough below). But collaboration surfaces exist where the operator *wants* recipients to give the agent instructions through the interface — a shared workspace where collaborators direct the agent, a team review surface where reviewers can ask the agent to act on feedback.
+The default is strong because the injection vector is real (see attack walkthrough below). But collaboration surfaces exist where the operator *wants* recipients to give the agent instructions through the interface — a shared workspace where collaborators direct the agent, a team review surface where reviewers can ask the agent to act on feedback, collaborators requesting new data or UI affordances be added to the page.
 
-The escape hatch: **the operator can declare specific recipients (or a surface) as trusted for instruction-bearing input.** The mechanism is the agent's judgment informed by the operator's intent — if the operator says "set up a collaboration surface where the team can direct the agent," that's an explicit trust declaration. The skill names the default posture and the override; the agent decides when the override applies based on operator signals.
+The escape hatch: **the operator can declare specific recipients as trusted for instruction-bearing input.** The mechanism is the agent's judgment informed by the operator's intent — if the operator says "set up a collaboration surface where the team can direct the agent," that's an explicit trust declaration. The skill names the default posture and the override; the agent decides when the override applies based on operator signals.
 
 What the skill does NOT do: prescribe how trust is declared (a config field, a flag, a conversational signal). That's an agent decision — P1.
+
+### Collaboration trust model — native to v2
+
+The collaboration trust model is part of v2 surface, not a follow-on extension. What this means concretely: v2 natively supports multi-recipient surfaces where trusted collaborators submit input and instructions the agent acts on — requesting new affordances, directing the agent to take actions in the project, providing feedback the agent incorporates. The operator sets up the surface with collaboration intent; the agent treats declared-trusted recipients' submissions as actionable.
+
+What is NOT native to v2: the collaboration *infrastructure* — bidirectional state, live updates, websockets, agent-as-participant with real-time canvas editing. That's the follow-on arc (Q6). The trust model makes a surface collaborative (who can instruct the agent); the infrastructure makes it live (participants see each other's activity in real-time). These are different axes.
+
+### Trusted submissions and the envelope/content boundary
+
+Even when the operator declares recipients trusted, the envelope/content trust boundary still applies — but with different semantics than for untrusted submissions:
+
+- **Structured affordances** (buttons, selectors, checkboxes, ranked lists): trusted recipients' selections are treated as instructions. This is the primary path for collaboration input.
+- **Free-text fields**: trusted recipients' free-text CAN be treated as instructions within the scope of the surface's purpose. The agent uses judgment about whether the instruction is reasonable and within scope. This is what makes collaboration surfaces useful — collaborators directing the agent through natural language.
+- **The residual risk**: a trusted collaborator's account gets compromised, or they exceed the surface's intended scope. This is an accepted tradeoff the operator opted into by declaring trust, not something the skill prevents. The security reference names the risk so operators make informed decisions.
+
+The key distinction from untrusted submissions: for untrusted recipients, free-text is always data (never instructions). For trusted recipients, free-text can be instructions — the operator accepted this when they set up the collaboration.
 
 ### Why this default, why now
 
@@ -415,6 +436,7 @@ Promoting from v0's existing references/security.md, with additions:
 4. **Hosted-substrate auth (CSRF, unguessable URLs, provisioning gate)** (existing, kept; the worker example moves to a reference of one realization, not the canonical).
 5. **Cross-tool replay** (existing, kept).
 6. **Submission attribution** (new in v2). Surfaces shared with multiple recipients cannot distinguish *which* recipient submitted *which* payload unless the surface explicitly carries recipient identity. The agent decides whether to (a) ignore attribution (treat all submissions as anonymous), (b) require sign-in (a real auth layer, out of v2 scope), or (c) mint per-recipient URLs so each URL is attributable to one recipient by construction. Option (c) is the v2-recommended path for multi-recipient cases that need attribution; the skill names the option, the agent decides.
+7. **URL forwarding and trust granularity** (new in v2). When the operator declares trust, the granularity matters: per-recipient trust (via per-recipient URLs) is not defeated by URL forwarding, because a forwarded URL doesn't carry the original recipient's trust declaration. Per-surface trust (a single URL with a blanket trust flag) IS defeated by forwarding — anyone who gets the URL inherits the trust. The security reference names this risk so operators and agents can make informed decisions; the skill does not prescribe which granularity to use — that's the agent's call based on context (P1).
 
 ### What's deferred
 
@@ -468,6 +490,10 @@ generated_via: setup-conversation
 - (no other credentials needed for default loopback)
 ```
 
+### Preflight verification
+
+At the start of each session, the agent reads `environment.md` and verifies that named credential locations are still reachable — the env var exists, the keychain entry resolves, the credentials file is present. If any location is stale (key rotation, machine migration, deleted entry), the agent surfaces the gap per P2 and offers to re-run the setup workflow for the affected locations. This closes the gap between "setup recorded the location" and "the location is still valid" — the setup/execution split alone does not catch staleness between sessions.
+
 ### Why this avoids credential-classifier collisions
 
 - `environment.md` is read at every execution. It contains **locations and shapes**, not credentials.
@@ -477,6 +503,7 @@ generated_via: setup-conversation
   - "credential is at `~/.reach/credentials` line 3" (specific file read)
 - The agent reads the value from the named location at the moment of use. Reading a specific env var, a specific keychain entry, or a specific line of a credentials file is a documented, bounded action — not "scan the keychain for anything that looks like a token."
 - Credentials CAN and SHOULD live in secure storage (keychain, encrypted vaults). The environment file instructs the agent how to retrieve from that secure storage through a named, bounded path. The optimal scenario is secure storage + documented retrieval, not avoidance of secure storage.
+- **Harness-level classifiers may still block named reads.** Documenting a bounded retrieval path is the skill's intent, but whether the harness permits the named read is harness-level policy the skill cannot guarantee. If the harness blocks a documented retrieval path, P2 applies — the gap surfaces to the user as a setup issue, not a silent failure. The skill does not promise classifier behavior; it structures credential access so classifiers can make informed decisions about bounded reads vs open-ended scans.
 
 ### Setup-time discipline
 
@@ -527,6 +554,8 @@ The cutover is one of the *gating tickets after dogfood*, not part of v2 impleme
 2. Promote new: `git mv skills/surface skills/poke`. Or, if Andrew accepts the rename: `git mv skills/surface skills/surface` (no-op) and update symlinks to point `~/.claude/skills/poke` → `~/Workspace/poke/skills/surface` (or remove the `poke` symlink and add `surface`).
 3. Same for reach: `git mv skills/reach skills/reach-v0`, `git mv skills/reach-v2 skills/reach`.
 4. Update `.claude-plugin/plugin.json` in each repo to point at the promoted skill.
+5. **Update symlinks.** After `git mv`, `~/.claude/skills/poke` dangles (points at the old path). Update or recreate symlinks to point at the promoted skill location. Also remove dogfood-period symlinks (`~/.claude/skills/surface`, `~/.claude/skills/reach-v2`) that are no longer needed.
+6. **Cross-repo path audit.** Grep downstream repos and dotfiles for references to the old skill paths (`~/.claude/skills/poke/`, `skills/poke/references/`, etc.) and update them. This includes any CLAUDE.md files, skill cross-references, dispatch prompts, or documentation that hardcodes the old path.
 
 Cutover is a single reviewed PR per repo. It does not happen as part of v2 implementation.
 
@@ -575,7 +604,7 @@ Each use case from handoff §6, validated against the design above. Format: case
 
 1. **Friend one-off (trigger session case).** Ephemeral `recipients/<name>.md` with `lifetime: ephemeral`, `delivery: direct: [(imessage, <number>)]`. Send via existing iMessage channel. Agent infers ephemeral; can promote to enduring on repeat sends. **Not broken.**
 
-2. **Collaboration canvas (tldraw shape).** Persistent surface, live updates, multi-recipient, agent-as-participant. **Deferred (Q6).** The v2 surface wire does not foreclose on this (the "ephemeral" invariant is reworded to "task-shaped"; single-shot semantics are not baked in). The follow-on arc takes it up. The current design does not break it — it just doesn't fully solve it. **Not broken; not fully supported in v2 spec.**
+2. **Collaboration canvas (tldraw shape).** Persistent surface, live updates, multi-recipient, agent-as-participant. Two layers: (a) the collaboration *trust model* (multiple trusted recipients submitting instructions — covered natively by v2's §F operator-trust override), and (b) the collaboration *infrastructure* (bidirectional state, live updates, websockets — **deferred to follow-on arc, Q6**). The v2 surface wire does not foreclose on the infrastructure (the "ephemeral" invariant is reworded to "task-shaped"; single-shot semantics are not baked in). **Collaboration trust model: validated in v2. Collaboration infrastructure: design-compatible but not validated — requires capabilities v2 does not spec.**
 
 3. **Medical team patient care.** Surface for collaborative review (handled by §F: per-recipient URLs for attribution + third-party-share security rule). Reach to team members via team-recipient descriptor (handled by §E.Q2: fan-out to per-member channels, each member's prefs respected). Persistent surface — defer to Q6 follow-on, but the *delivery* layer works in v2. **Not broken for the reach layer; partly deferred for the persistent-surface layer.**
 
@@ -585,7 +614,7 @@ Each use case from handoff §6, validated against the design above. Format: case
 
 6. **Cron-triggered reach + surface.** Autonomous agent mints a surface, ships URL via reach, drains response. Reach's environment.md tells it which channels work for self autonomously; surface's environment.md tells it which substrate to deploy on. No credential-classifier collision because both files were populated at setup time and credentials are retrieved via documented, bounded paths. **Not broken; explicitly improved (the credential-classifier collision is what tripped the trigger session and is the v2-fixed case).**
 
-**Summary:** five of six fully supported by v2 spec; the sixth (collaboration canvas) is *not foreclosed* by the spec and is the target of a follow-on arc. No architectural choice in this brief breaks any of the six.
+**Summary:** five of six fully supported by v2 spec. The sixth (collaboration canvas) is split: the collaboration *trust model* is validated in v2 (trusted recipients can instruct the agent); the collaboration *infrastructure* (live updates, bidirectional state) is design-compatible but not validated — that's the follow-on arc. No architectural choice in this brief breaks any of the six.
 
 ---
 
