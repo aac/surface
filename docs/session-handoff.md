@@ -1,26 +1,19 @@
 # poke — Session Handoff
 
-**Date:** 2026-05-23 — all surface implementation tickets complete
-**Branch:** `main` @ `cecc2df`
-**Status:** v0 still shipped. Arc-rsv2 surface implementation **complete** — all nine deliverables (D1–D9) merged to main. Dogfood and compound tickets remain, blocked on reach-side external dep.
+**Date:** 2026-05-23 — all surface implementation complete, dogfood ready
+**Branch:** `main` @ `a6a2247`
+**Status:** v0 still shipped. Arc-rsv2 surface implementation **complete** — all nine deliverables (D1–D9) merged to main. Reach v2 implementation also complete (separate repo). Dogfood is next.
 
-## What landed this session
+## Next step: dogfood
 
-- **All nine surface implementation deliverables merged to main:**
-  - D2 pattern reference — `skills/surface/references/pattern.md`
-  - D3 wire example — `skills/surface/references/wire-example.md`
-  - D4 lifecycle — `skills/surface/references/lifecycle.md`
-  - D5 security reference — `skills/surface/references/security.md` (seven sections: trust boundary, third-party default, collaboration trust, scope calibration, URL forwarding walkthrough, deployment posture, attribution)
-  - D6 hosted example — `skills/surface/references/hosted-example.md`
-  - D7 example servers — `skills/surface/examples/` (Go + Python + tests)
-  - D1 SKILL.md — `skills/surface/SKILL.md` (nine sections, all six Q4 cross-reference constraints satisfied, version 0.1.0-alpha.1)
-  - D8 plugin manifest — `.claude-plugin/plugin.json` updated to list both skills
-  - D9 symlink — `~/.claude/skills/surface` → `~/Workspace/poke/skills/surface` (confirmed loading in harness)
+Run `ask show ask-0d53` — it contains a self-driving dogfood prompt that walks seven validation cases exercising surface v2 and reach-v2 together. Andrew participates as the recipient (choosing friends, confirming sends, responding to surfaces); the agent orchestrates. The prompt is in the ask body — read it and execute it.
 
-## Remaining arc-rsv2 tickets (blocked on external dep)
+After dogfood completes, the compound ticket (act-9ed913) follows — run `/compound` to capture process learnings from the arc.
 
-- **Dogfood** (act-4489d0) — blocked by `reach:act-741d56` (reach-side symlink/impl). Once reach v2 implementation completes and that external dep is removed, this unblocks.
-- **Compound** (act-9ed913) — blocked by dogfood.
+## What landed (implementation complete)
+
+- **All nine surface deliverables merged:** pattern, wire-example, lifecycle, security (seven-section trust model), hosted-example, example servers (Go + Python), SKILL.md (nine sections, all Q4 cross-reference constraints), plugin manifest, symlink. Both skills loading in harness.
+- **Reach v2 also complete** (~/Workspace/reach) — all 13 deliverables merged, symlink at `~/.claude/skills/reach-v2`.
 
 ## Key design decisions (cumulative)
 
@@ -51,5 +44,5 @@
 ## Reading order for next session
 
 1. This file
-2. `act ready` and `ask list`
-3. `docs/reviews/arc-rsv2-plan-synthesis.md` — synthesis with ticket mapping
+2. `ask show ask-0d53` — the dogfood prompt
+3. `act ready` for non-arc-rsv2 backlog
