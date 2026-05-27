@@ -40,6 +40,14 @@ Decision rule: is this work that any agent could pick up and do, or work that ne
 
 Note: this is the **project's** workflow. The `surface stands alone` principle in §"Core principles" is about the surface skill having no dependency on ask/act — that's a property of the skill bundle, not a comment on how we run this repo's own development.
 
+## Testing the skill (references-only lens)
+
+When testing whether the skill works — via substrate ports, fresh-agent smoke tests, or dogfood — the bar is **"can a fresh agent build a working surface from the docs alone?"** not "does the output match existing implementations byte-for-byte." Operational divergence (different port defaults, different error statuses, different upload-path naming) is signal the pattern is being independently derived. Operational convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name) is signal the docs pinned the right things. Both are validation. Comparing impl-to-impl as a conformance bar is the wrong test.
+
+## Project memory policy
+
+Do not store skill *usage* guidance as project memory. Anything that influences how agents use the skill belongs in the skill's own files (`SKILL.md`, `references/`, `examples/`) where it ships with the plugin. Project memory that guides usage creates a divergence: the developer has context that every other user of the skill lacks. Project memory for this repo is limited to development workflow notes, and even those should be rare.
+
 ## Branch policy
 
 Solo dogfooded repo. Orchestrator merges feature branches to `main` with `git merge --ff-only` from the main checkout. Agents working in worktrees do NOT merge their own branches — commit, push branch if conventions require, return branch name in the report.
