@@ -1,6 +1,8 @@
 # poke — orientation for agents
 
-`poke` is a pattern + skill that lets an agent generate ephemeral, distributable UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. v0 ships only the skill bundle; v1 wraps the canonical wire into an installable binary.
+This repo ships two skills: **`surface`** (the active v2 skill) and **`poke`** (the v0 predecessor, now historical). The `surface` skill is what's loaded at `~/.claude/skills/surface` — use it for all new work. The `poke` skill under `skills/poke/` is preserved as a historical reference but is no longer symlinked or active.
+
+`surface` is a pattern + skill that lets an agent generate ephemeral, distributable UI surfaces to collect ad-hoc input from one or more recipients, and react to submissions autonomously.
 
 ## Core principles (load-bearing)
 
@@ -23,17 +25,17 @@ These are the through-lines from the v0 design conversation. They override surfa
 - `docs/plan.md` — v0 implementation plan, executed and complete. Marked `status: historical` in its frontmatter; preserved as a record of how v0 was built. Not a forward-looking roadmap.
 - `docs/decisions.md` — running log of substantive design choices and notable rejected proposals, with reasoning. Read before proposing changes to skill content or the core principles; check whether the proposal has already been considered. **Append a new entry whenever a substantive design choice is made — especially when a proposal is rejected on principle grounds — so the rationale doesn't have to be re-litigated.** Routine implementation choices and ticket-level work breakdowns stay out (those live in `act` history and commit messages); decisions.md is for design-semantics calls whose reasoning will still matter in six months. Reverse-chronological; new entries go at the top, under the "When to add an entry" preamble.
 
-## v0 deliverable scope
+## v0 deliverable scope (historical)
 
-- `SKILL.md` + `references/{pattern,wire-example,lifecycle,security}.md` + `examples/server.go`. No bundled binary, no installable tool, no MCP server. Bundling is v1.
-- Distribution: `git clone` into `~/Workspace/poke`; symlink to `~/.claude/skills/poke`.
-- Verification gate (v0 complete =): `examples/server.go` compiles and runs end-to-end against a curl'd submission; SKILL.md activates via the symlink (smoke test).
+v0 (`skills/poke/`) is complete and preserved as a historical reference. The active skill is `skills/surface/`.
+
+- Distribution: `git clone` into `~/Workspace/poke`; symlink `skills/surface/` to `~/.claude/skills/surface`.
 
 ## Versioning
 
-`skills/poke/SKILL.md` frontmatter carries a `version:` field. `.claude-plugin/plugin.json` carries the same `version`. Andrew uses these to eyeball-compare what's loaded in Cowork / Claude Desktop against what's in this repo without diffing the full bytes.
+`skills/surface/SKILL.md` frontmatter carries a `version:` field. `.claude-plugin/plugin.json` carries the same `version`. Andrew uses these to eyeball-compare what's loaded in Cowork / Claude Desktop against what's in this repo without diffing the full bytes.
 
-**Rule:** any landing that changes skill content (`skills/poke/SKILL.md`, anything under `skills/poke/references/`, anything under `skills/poke/examples/`) bumps **both** `version:` strings together. Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
+**Rule:** any landing that changes skill content (`skills/surface/SKILL.md`, anything under `skills/surface/references/`, anything under `skills/surface/examples/`) bumps **both** `version:` strings together. Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
 
 ## Project trackers (active)
 
