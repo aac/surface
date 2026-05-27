@@ -23,3 +23,5 @@ __pycache__/
 .ask/
 .act/
 .claude/settings.local.json
+docs/session-artifacts/
+.wrangler/
