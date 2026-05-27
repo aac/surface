@@ -12,7 +12,7 @@ Four shapes cover the common cases. They are not exclusive — a given surface m
 - **What's needed:** a server (or any process) that emits one submission-event per line to stdout, and Claude Code's `Monitor` tool pointed at the background process.
 - **Tradeoffs:** push-driven and effectively zero-latency, but only works where the agent and the server live on the same machine and the harness exposes a Monitor primitive.
 
-This is the preferred mechanism for local CC use against the canonical HTTP+JSON wire. A worked example follows below.
+This is the preferred mechanism for local CC use against the canonical HTTP+JSON wire. **Important:** launch the server independently (via `Bash` with `run_in_background`) and point Monitor at its stdout separately — don't embed the server launch inside the Monitor command, or the server dies when the Monitor times out. A worked example follows below.
 
 ### ScheduleWakeup / `/loop` polling (Claude Code primitives)
 
@@ -31,6 +31,12 @@ This is the preferred mechanism for local CC use against the canonical HTTP+JSON
 - **When it fits:** remote or channel-driven setups where the agent isn't co-located with the surface and exposes a callback URL that the surface can POST to.
 - **What's needed:** an inbound HTTP endpoint the agent listens on (or the harness exposes), plus the surface configured to POST submission events to it.
 - **Tradeoffs:** push-driven and topology-agnostic across machines and channels, but requires the agent to be addressable from the surface and currently has limited primitive support in CC — named here as the abstract shape for non-CC or future environments.
+
+## Server lifetime vs. drain lifetime
+
+The server and the drain mechanism are separate concerns with different lifetime requirements. The server must stay alive as long as the surface is active; the drain must be re-armable without restarting the server. Coupling them — e.g., launching the server *inside* a Monitor command so the server dies when the Monitor times out — creates a fragile pair where the surface goes offline whenever the drain needs re-arming.
+
+Preferred shape: start the server via `run_in_background` (or `nohup`, or `--drain-mode fs`), then point the drain mechanism at it separately. If the drain times out or needs re-arming, the server keeps serving. The worked Monitor example below shows the decoupled shape.
 
 ## Worked example: Monitor against the canonical wire
 

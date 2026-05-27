@@ -1,7 +1,7 @@
 {
   "name": "poke",
   "description": "Ad-hoc structured input from users via flexible, distributable interfaces. Ships two skills: poke (v0, production) and surface (v2 redesign, dogfood). Both generate ephemeral UI surfaces with opaque-ID affordances, deliver URLs through any outbound channel, and autonomously drain submissions to react.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "skills": [
     "skills/poke/SKILL.md",
     "skills/surface/SKILL.md"
