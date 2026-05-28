@@ -13,24 +13,39 @@ The repo is packaged for both Claude Code and Codex. The actual skill bundle liv
 **Claude Code CLI (skills-dir symlink):**
 
 ```sh
-git clone <repo-url> ~/Workspace/poke
-ln -s ~/Workspace/poke/skills/poke ~/.claude/skills/poke
+git clone <repo-url> ~/Workspace/surface
+ln -s ~/Workspace/surface/skills/surface ~/.claude/skills/surface
 ```
 
-**Claude Desktop / Cowork (plugin install):** install the plugin from this repo so it appears in the customize view. Plugin discovery is driven by `.claude-plugin/plugin.json` at the repo root; the skill is auto-discovered under `skills/poke/`.
+**Claude Desktop / Cowork (plugin install):** install the plugin from this repo so it appears in the customize view. Plugin discovery is driven by `.claude-plugin/plugin.json` at the repo root; the skill is auto-discovered under `skills/surface/`.
 
 ### Codex
 
-`.codex-plugin/plugin.json` at the root declares the Codex plugin. Skill bundle discovered under `skills/poke/`.
+`.codex-plugin/plugin.json` at the root declares the Codex plugin. Skill bundle discovered under `skills/surface/`.
 
 **Codex CLI (skills-dir symlink):**
 
 ```sh
-git clone <repo-url> ~/Workspace/poke
-ln -s ~/Workspace/poke/skills/poke ~/.codex/skills/poke
+git clone <repo-url> ~/Workspace/surface
+ln -s ~/Workspace/surface/skills/surface ~/.codex/skills/surface
 ```
 
 **Plugin install:** point Codex at this repo; the `.codex-plugin/plugin.json` manifest carries the skill pointer and metadata.
+
+### CLI-only install (no marketplace)
+
+For offline use or environments without plugin marketplace access, `install.sh` at the repo root handles detection, symlink install, and uninstall for both harnesses:
+
+```sh
+git clone https://github.com/aac/surface.git
+cd surface
+./install.sh                        # auto-detects Claude Code or Codex
+./install.sh --target claude        # override to Claude Code
+./install.sh --target codex         # override to Codex
+./install.sh --uninstall            # remove the installed skill
+```
+
+The script can also be piped via curl — it will clone the repo to `~/.local/share/surface/` if no local checkout is found. See the `# Usage:` block at the top of `install.sh` for full details.
 
 **Codex lifecycle primitive mapping.** The mechanism categories in `skills/poke/references/lifecycle.md` (push-stream, polling, FS watch, hosted poll, webhook) are harness-neutral; primitives differ:
 
