@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-05-28
+
+### Fixed
+- `.codex-plugin/plugin.json` `.name` field changed from stale `"poke"` to `"surface"`; description aligned with the canonical `.claude-plugin/plugin.json` framing (multi-recipient, third-party share, copy-to-paste runbook use cases that were added during arc-rsv2 but missed in the codex manifest) (act-7d405d).
+
 ## [0.1.2] - 2026-05-28
 
 ### Added
