@@ -1,6 +1,6 @@
 ---
 name: surface
-version: 0.1.4
+version: 0.1.5
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking, drag-rank, drawing or annotation, structured forms, async approval gates, multi-recipient surfaces where several people respond to the same prompt, collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares where a surface is delivered to someone other than the operator, situations where the user isn't in chat and the outbound channel (email, SMS, push, paging) can only carry a URL, runbook delivery where the user works through a list of shell commands one at a time with per-step copy affordances and done buttons. The agent generates a task-shaped page of opaque-ID affordances, ships the URL through whatever channel reaches the recipients, and autonomously drains submissions to react. Not for simple in-chat questions, durable apps or persistent products, or interactions the agent can self-resolve.
 ---
 
@@ -48,7 +48,7 @@ description: Use when an agent needs ad-hoc structured input from one or more re
 | "Share this design review with the collaborators so they can direct feedback" | surface (collaboration, trusted recipients) |
 | "Send the contractor a questionnaire about their availability" | surface (third-party share) |
 
-**Delivering the surface URL.** In an interactive session, the agent can open the URL directly in the user's browser, paste it into chat, or both. When the recipient is not in session, the agent needs an outbound channel to deliver the URL. Outbound delivery tools — such as `reach` (`~/.claude/skills/reach/`), which delivers payloads of any shape (messages, files, URLs, notifications) across configured channels — are the preferred path for channel navigation when available. When no delivery tool is installed, the agent falls back to direct send mechanisms (osascript, sendmail, or equivalent) for the channels it can reach.
+**Delivering the surface URL.** In an interactive session, the agent can open the URL directly in the user's browser, paste it into chat, or both. When the recipient is not in session, the agent needs an outbound channel to deliver the URL. Outbound delivery tools — such as `reach` (`~/.claude/skills/reach/`), which delivers payloads of any shape (messages, files, URLs, notifications) across configured channels — are the preferred path for channel navigation when available. When no delivery tool is installed, the agent falls back to direct send mechanisms (osascript, sendmail, or equivalent) for the channels it can reach. When none of those are available either, delivery doesn't have to fail: the agent can paste the URL in chat, log it somewhere the operator will see it, or ask the operator to deliver it manually. There is always a bottom of the chain.
 
 Before building, also read §9 — security considerations scale with how far the surface travels from the agent and how many recipients receive it.
 
