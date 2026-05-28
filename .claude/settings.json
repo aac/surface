@@ -1,1 +1,25 @@
-{"permissions":{"allow":["Write","Edit","Bash(mkdir:*)","Bash(cat:*)","Bash(ls:*)","Bash(pwd:*)","Bash(git add:*)","Bash(git commit:*)","Bash(git status:*)","Bash(git diff:*)","Bash(git log:*)","Bash(git checkout:*)","Bash(git push:*)","Bash(git merge --ff-only:*)","Bash(act:*)","Bash(ask:*)"]}}
+{
+  "permissions": {
+    "allow": [
+      "Write",
+      "Edit",
+      "Bash(mkdir:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(pwd:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git checkout:*)",
+      "Bash(git push:*)",
+      "Bash(git merge --ff-only:*)",
+      "Bash(act:*)",
+      "Bash(ask:*)"
+    ]
+  },
+  "worktree": {
+    "bgIsolation": "none"
+  }
+}
