@@ -1,6 +1,6 @@
 ---
 name: surface
-version: 0.1.8
+version: 0.1.9
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking, drag-rank, drawing or annotation, structured forms, async approval gates, multi-recipient surfaces where several people respond to the same prompt, collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares where a surface is delivered to someone other than the operator, situations where the user isn't in chat and the outbound channel (email, SMS, push, paging) can only carry a URL, runbook delivery where the user works through a list of shell commands one at a time with per-step copy affordances and done buttons, information-dense surfaces where rich context (tables, grids, flagged data, clinical narratives, multi-paragraph summaries) needs to appear alongside multiple granularities of structured input on one page. The agent generates a task-shaped page of opaque-ID affordances, ships the URL through whatever channel reaches the recipients, and autonomously drains submissions to react. Not for simple in-chat questions, durable apps or persistent products, or interactions the agent can self-resolve.
 ---
 
@@ -109,6 +109,8 @@ Surface benefits from a setup-time discovery step that records what substrates a
 ## 8. Reference examples
 
 `examples/server.go` is a runnable Go reference server that implements the wire example in §4. Read it for orientation, then re-implement in whatever substrate fits the environment. The pattern doesn't require any particular language.
+
+For sessions that span multiple rounds — initial collection, agent-side synthesis, a voting surface, and an optional tiebreaker — see `references/multi-round.md`.
 
 **The substrate-agnostic test.** If you're porting surface to another substrate, the question is "can I build a working surface server from the docs in §3–§5 and `references/`?" — not "does my impl match the Go (or Python, or Node) reference byte-for-byte?" Operational details (port, watchdog, error statuses, body-cap policy, Cache-Control specifics) should be chosen on what's idiomatic for the target substrate. Cross-impl divergence on those details is signal that the pattern is being independently derived from the docs; cross-impl convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name, timestamp format) is signal that the docs nailed down the right things. Both are validation. The wrong test is comparing impl-to-impl as a conformance bar.
 
