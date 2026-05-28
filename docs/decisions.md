@@ -8,6 +8,18 @@ This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`)
 
 ---
 
+## 2026-05-28 · itemId affordance grouping is a caller concern, not a surface concern
+
+**Request:** surface-voice-triage asked for the ability to group multiple affordances by a shared `itemId` on drain — so the agent receives a `(itemId, [submissions])` structure rather than flat submissions.
+
+**Decision:** pushed back. itemId grouping is the agent's job, not surface's; the existing intent map already provides the mechanism. No wire change, no pattern change, no new first-class concept.
+
+**Reasoning:** The surface pattern's intent field is explicitly "whatever the agent wants to remember about what should happen if that affordance is submitted — a string tag, a structured plan, a tool call, any JSON." That already covers structured metadata like `{"action": "approve", "itemId": "clip_42"}`. On drain, grouping by `itemId` is a one-liner pivot over the submissions using the intent map — a task the pattern explicitly leaves to the agent. Adding `itemId` as a first-class wire concept would be prescribing an operational pattern that any agent could derive from context. The failure mode named in CLAUDE.md core principles is over-specification; this is a textbook case. "Trust the agent" means trusting that the caller can put `itemId` in the intent and pivot on it after draining — surface doesn't need to bake in that grouping on its end. The wire already ships the data; the caller groups it.
+
+**Clarification for callers:** to attach multiple affordances to one item, encode the item reference in the intent of each affordance (e.g., `"intent": {"action": "approve", "item_id": "clip_42"}`). After draining, group submissions by `intent.item_id`. This is already expressible with no changes to the pattern, wire, or skill content.
+
+---
+
 ## 2026-05-23 · arc-rsv2 design brief feedback round — eight substantive calls
 
 Andrew reviewed the `arc-reach-surface-v2` umbrella design brief and provided feedback that produced eight substantive design-semantics changes. Recorded together because they came from one review pass; each is independently re-litigable.
