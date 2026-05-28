@@ -84,7 +84,7 @@ Three of the four local references (Python, Node, Rust) were built without their
 | Path | Purpose |
 |---|---|
 | `README.md` | This file. |
-| `LICENSE` | MIT. |
+| `LICENSE` | Apache 2.0. |
 | `CLAUDE.md` | Conventions for agents working on `poke` itself (load-bearing design principles, branch policy, halt conditions). |
 | `docs/brief.md` | Converged v0 design — pattern, wire, lifecycle, skill structure, security stance, out-of-scope. |
 | `docs/plan.md` | v0 implementation plan. |
@@ -102,4 +102,4 @@ This skill phones no one home. It emits no telemetry and collects no data. Any o
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
