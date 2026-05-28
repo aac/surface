@@ -23,5 +23,7 @@ __pycache__/
 .ask/
 .act/
 .claude/settings.local.json
+.claude/scheduled_tasks*
+.claude/worktrees/
 docs/session-artifacts/
 .wrangler/

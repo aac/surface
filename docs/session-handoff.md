@@ -1,33 +1,44 @@
 # surface — Session Handoff
 
-**Date:** 2026-05-27 — arc-rsv2 complete, poke→surface rename done
-**Branch:** `main` @ `02a936d`
-**Status:** Arc-rsv2 is **complete**. Both skills shipped, dogfooded, and renamed. Repo is `~/Workspace/surface`.
+**Date:** 2026-05-28 — first /orchestrate pass + repo went public on GitHub
+**Branch:** `main` @ `9dea0e6`
+**Status:** Repo is now public at https://github.com/aac/surface. Three units landed via orchestrator, one retired as false-positive, three follow-ups filed-and-fixed inline. **CI is currently red on main** — see "Loose ends" below.
 
 ## What shipped this session
 
-- **Dogfood: 7 validation cases** exercising surface + reach-v2 together. 6/7 passed; Case 4 failed (used unverified email channel). Skill fixes shipped from findings.
-- **Skill fixes:** lifecycle decoupling note (surface), registry constraint (reach-v2). Version bumps: surface 0.1.1-alpha.1, reach-v2 0.2.1-alpha.1.
-- **Poke → surface rename:** deleted `skills/poke/`, renamed workspace directory, fixed symlink, updated CLAUDE.md in 4 repos, updated plugin.json.
-- **Project memory relocated and deleted.** Usage guidance was already in SKILL.md; development guidance moved to CLAUDE.md. Memory policy added: no skill usage guidance in project memory.
-- **Global CLAUDE.md:** added "file the ticket" and "check auth before punting" rules.
-- **Closed:** ask-0d53 (dogfood), act-9ed913 (compound).
+- **Boilerplate hygiene** (act-ef97): `CHANGELOG.md`, `SECURITY.md`, `CONTRIBUTING.md`, three GitHub issue templates, no-telemetry line in `README.md`.
+- **CI workflow** (act-1145): `.github/workflows/ci.yml` — markdown lint with calibrated `.markdownlint.json`, plugin manifest validation enforcing three-way SKILL.md ↔ claude-plugin ↔ codex-plugin version-lockstep invariant, Go reference-server tests.
+- **Version drift reconciled** (act-e23c59 + act-9dc9f4): all three version strings aligned at `0.1.2`, then bumped to `0.1.3` after the codex-name fix. `skills/surface/go.mod` now declares real `go 1.22` (was non-existent `1.26.3`); CI switched to `go-version-file` for single-source toolchain.
+- **Codex plugin rename caught and fixed** (act-7d405d): `.codex-plugin/plugin.json` `.name` was still `"poke"` and description was the stale poke framing — fixed to `"surface"` + canonical description. Surfaced by reading the manifest during the version reconciliation.
+- **Retired as stale**: act-271b11 (the "SKILL.md §7→§9 numbering gap" claim — verified the file already had sequential §§1-9; closed without code change).
+- **Public repo created**: `aac/surface`, public, MIT, pushed main with all five commits.
+- **Project**: settings.json pretty-printed and `worktree.bgIsolation: none` confirmed (d4e36f5).
 
-## Open backlog
+## Loose ends
 
-7 act tickets, all priority 2-3, all independent — good `/orchestrate` candidates:
-- Multi-round collaborative surface example
-- SKILL.md description update (copy-to-paste runbook discoverability)
-- Codex Phase 1 smoke
-- Boilerplate hygiene (CHANGELOG, SECURITY, CONTRIBUTING, etc.)
-- CI workflow (markdown lint + plugin.json validation + server tests)
-- Lifecycle.md harness-neutral refactor
-- install.sh fallback (pri 3)
+- **CI is failing on main**. Two markdownlint MD036 violations in the boilerplate issue templates:
+  - `.github/ISSUE_TEMPLATE/bug_report.md:18` — `**Environment**` used as bold-emphasis instead of `## Environment`
+  - `.github/ISSUE_TEMPLATE/question.md:13` — `**Question**` used as bold-emphasis instead of `## Question`
 
-## Housekeeping
+  Either fix the two files (convert `**X**` → `## X`) or add `MD036` to the disabled rules in `.markdownlint.json`. The second CI run on the codex-name commit (9dea0e6) will hit the same failure when it completes.
 
-- `docs/v2-redesign-handoff.md` is untracked — historical design input, could be committed or gitignored.
+- **`.claude/scheduled_tasks.lock`** is untracked at repo root. Should be added to `.gitignore` — comes from `/loop` scheduling state; not meant to be committed.
+
+## Open backlog (8 units, all independent)
+
+- act-ba56f9 — Can affordances be grouped by itemId on drain? (filed by another session)
+- act-55e209 — Specify no-submission timeout/discard semantics
+- act-839f86 — Emphasize information-dense use cases in SKILL.md 'when to use'
+- act-234249 — Design: multi-recipient attribution for hosted surface sessions
+- act-864b91 — Add multi-round collaborative worked example to references
+- act-dded — Update SKILL.md frontmatter description (copy-to-paste runbook discoverability)
+- act-3c44 — Codex Phase 1 smoke test
+- act-89b6 — Refactor lifecycle.md to harness-neutral category names
+- act-339ac1 — Strengthen URL-delivery fallback chain (pri 3)
+- act-7c2d — install.sh as CLI-only fallback install path (pri 3)
+
+The SKILL.md cluster (839f86, dded, 339ac1, 55e209) and the references/ pair (89b6, 864b91) all bump the lockstep version field; they need one-per-pass sequencing to avoid frontmatter merge conflicts during parallel orchestrate dispatch.
 
 ## Next session
 
-Pick up housekeeping tickets via `/orchestrate`, or wait until naturally relevant. First real-world use of surface + reach-v2 from a different project will be the clean-project validation.
+CI fix is the headline. After that, the SKILL.md cluster + references/ pair are good orchestrator-sequenced candidates; act-3c44 (Codex smoke) is fully independent and could run in parallel with whichever skill-content unit is dispatched.
