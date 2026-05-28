@@ -96,6 +96,10 @@ Three of the four local references (Python, Node, Rust) were built without their
 - **`docs/brief.md`** — the converged v0 design. Start here if you want to understand the shape of the pattern, the wire example, lifecycle mechanisms, and what was deliberately left out of v0.
 - **`CLAUDE.md`** — the load-bearing principles (trust the agent, pattern is the contract, autonomous draining is foundational). Read before changing anything in the skill bundle.
 
+## Privacy / telemetry
+
+This skill phones no one home. It emits no telemetry and collects no data. Any outbound network activity happens only through hosted-substrate references the user explicitly opts into (e.g., the Cloudflare Worker reference), and is entirely controlled by the operator.
+
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
