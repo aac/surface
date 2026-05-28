@@ -66,6 +66,34 @@ When a surface is shared with recipients other than the operator, the agent must
 
 For the full threat model, trust-boundary walkthrough, and calibration examples, see `security.md`.
 
+## Multi-affordance-per-item surfaces
+
+A common shape: the caller has a list of items (clips to triage, PRs to review, photos to label, budget lines to approve), and each item needs two or more affordances (approve/reject, label choices, priority flags).
+
+The intent field already handles this. There is no new pattern concept; this is callers using the existing one.
+
+**How to set it up.** When minting affordances, embed the item reference in each affordance's intent alongside the action:
+
+```
+approve_btn for clip_42  → intent: {"action": "approve", "item_id": "clip_42"}
+reject_btn  for clip_42  → intent: {"action": "reject",  "item_id": "clip_42"}
+approve_btn for clip_17  → intent: {"action": "approve", "item_id": "clip_17"}
+reject_btn  for clip_17  → intent: {"action": "reject",  "item_id": "clip_17"}
+```
+
+The intent field is any JSON the caller wants — `{"action", "item_id"}` is one shape, not a requirement. The caller decides what to put there.
+
+**After draining.** The submission set arrives with each entry's intent intact. Grouping by item is a one-liner pivot over the intent map:
+
+```
+by_item = groupBy(submissions, fn(s) → s.intent.item_id)
+# → {"clip_42": [approve_submission], "clip_17": [reject_submission], ...}
+```
+
+The caller then processes each item's submissions in whatever order makes sense.
+
+**The point.** No wire change. No new first-class concept. The intent field carries the grouping key because the caller put it there. Invariant 1 (the agent owns the intent map) is doing the work.
+
 ## Beyond the pattern (agent responsibilities)
 
 The pattern stops at the five invariants and the collaboration trust model. Operational concerns are the agent's to handle, based on its environment and the shape of the task. Not exhaustive:
