@@ -276,7 +276,7 @@ entropy). The URL containing the session ID *is* the access control — see
 IDs are agent-minted and opaque to the worker; the worker matches them by
 equality against the stored map.
 
-## Worked example
+## Worked example — single recipient
 
 A one-affordance "Approve" round-trip against a hosted deployment:
 
@@ -351,6 +351,99 @@ Response:
 Agent looks up `approve` in the affordance map, finds
 `"approve_pr_42"`, runs the merge, and is done. See `lifecycle.md` for the
 poll-loop pseudocode.
+
+## Worked example — multi-recipient attribution via per-recipient URLs
+
+The single-recipient walkthrough above provisions one session and ships one
+URL. When the surface goes to multiple recipients and the agent needs to know
+*who* answered, the mechanism is the same — provision one session per
+recipient, ship each recipient exactly one URL, drain across all sessions.
+The intent map can be identical across sessions; the session ID itself is
+what attributes the submission.
+
+### 1. Agent provisions N sessions
+
+The same `POST /_provision` call, once per recipient. The intent map can be
+shared verbatim — all recipients see the same affordances:
+
+```python
+recipients = ["alice", "bob", "carol"]
+sessions = {}
+
+for name in recipients:
+    resp = provision(
+        html=render_html(affordances),
+        affordances={
+            "approve": {"label": "Approve", "intent": "approve_pr_42"},
+            "reject":  {"label": "Reject",  "intent": "reject_pr_42"},
+        },
+    )
+    # resp: {session_id, url, csrf_token}
+    sessions[name] = resp          # map recipient → session
+```
+
+Each call returns a distinct `session_id` and `url`. The agent keeps the
+`sessions` dict as the attribution map.
+
+### 2. Agent ships per-recipient URLs
+
+Each recipient receives exactly one URL — their own:
+
+```python
+for name, sess in sessions.items():
+    send(to=name, body=f"Review PR 42: {sess['url']}")
+```
+
+Because the URL is the access control, a recipient who forwards their URL
+passes their attributed slot along. See `security.md` §5 for the
+forwarding tradeoff; the mechanism is unchanged regardless of how the
+agent handles that risk.
+
+### 3. Agent drains across all sessions
+
+The agent polls each session independently, advancing a per-session cursor:
+
+```python
+cursors = {name: 0 for name in recipients}
+answered = {}
+
+while len(answered) < len(recipients):
+    for name, sess in sessions.items():
+        if name in answered:
+            continue
+        poll = get(f"{sess['url']}poll?since={cursors[name]}")
+        for sub in poll["submissions"]:
+            cursors[name] = max(cursors[name], sub["at_ms"])
+            answered[name] = sub          # first submission wins
+
+    sleep(cadence)
+```
+
+Each submission arrives tagged with the affordance ID and optional payload;
+the agent maps it back to the recipient via `answered[name]`. Sessions with
+no submission before the deadline become no-shows — the agent reads
+`set(recipients) - set(answered)` to name them.
+
+### 4. Agent synthesises
+
+```python
+for name, sub in answered.items():
+    intent = affordances[sub["id"]]["intent"]
+    # intent is "approve_pr_42" or "reject_pr_42"
+    record_vote(reviewer=name, decision=intent)
+
+no_shows = set(recipients) - set(answered)
+if no_shows:
+    note_no_response(reviewers=no_shows)
+
+# wait for all N, or proceed after quorum, or timeout — agent's call
+```
+
+The only difference from the single-recipient case is the outer loop over
+sessions. The wire shape, CSRF handling, and poll cursor discipline are
+identical.
+
+---
 
 ## Security notes
 
