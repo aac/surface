@@ -6,31 +6,39 @@ Autonomous draining is foundational to the pattern: once a surface is live, the 
 
 Four shapes cover the common cases. They are not exclusive — a given surface may combine more than one (e.g., Monitor with a polling fallback).
 
-### Monitor on background-process stdout (Claude Code primitive)
+### Push-stream on subprocess stdout
 
-- **When it fits:** local Claude Code session where the agent can spawn the surface's server in the background and read its stdout stream.
-- **What's needed:** a server (or any process) that emits one submission-event per line to stdout, and Claude Code's `Monitor` tool pointed at the background process.
-- **Tradeoffs:** push-driven and effectively zero-latency, but only works where the agent and the server live on the same machine and the harness exposes a Monitor primitive.
+- **When it fits:** the agent can spawn the surface's server in the background and read its stdout stream — both living on the same machine.
+- **What's needed:** a server (or any process) that emits one submission-event per line to stdout, and a harness primitive that streams background-process output to the agent.
+- **Tradeoffs:** push-driven and effectively zero-latency, but requires the agent and server to be co-located and the harness to expose a stream-reading primitive.
 
-This is the preferred mechanism for local CC use against the canonical HTTP+JSON wire. **Important:** launch the server independently (via `Bash` with `run_in_background`) and point Monitor at its stdout separately — don't embed the server launch inside the Monitor command, or the server dies when the Monitor times out. A worked example follows below.
+**Claude Code:** launch the server with `Bash(run_in_background=True)` to get a shell ID, then pass that ID to `Monitor` to stream its stdout. **Important:** launch the server and point Monitor at it separately — don't embed the server launch inside the Monitor command, or the server dies when Monitor times out. A worked example follows below.
 
-### ScheduleWakeup / `/loop` polling (Claude Code primitives)
+**Codex:** spawn the server under the long-running tool pattern (a background shell the tool keeps alive), then tail its stdout in a loop using the subprocess tail primitive, reading one `SUBMIT` line at a time. The decoupled shape is the same — server lifetime and drain lifetime stay separate.
+
+### Scheduled wake-ups for cadence
 
 - **When it fits:** stream-based primitives aren't available, the agent is invoked autonomously on a cadence, or the natural task latency is loose enough (minutes) that timer-driven wake-ups are fine.
 - **What's needed:** a state file (or any addressable read source) the agent can re-read on each wake, plus a wake-up scheduler.
 - **Tradeoffs:** trivially portable across environments and survives process restarts, but adds an inherent latency floor equal to the polling period and pays a small wake-up cost on every tick.
 
-### Filesystem watch (OS-level: `fswatch` / `inotify`)
+**Claude Code:** `ScheduleWakeup` to re-invoke the agent on a timer, or `/loop` in an interactive session to repeatedly call the draining step. **Codex:** the agent scheduler (`openai.beta.threads` with periodic re-invocation, or a hosted cron) fires the drain step on cadence. Either way, the drain reads the state file or polls the wire's `/poll` endpoint on each wake.
+
+### Filesystem drop-directory watch
 
 - **When it fits:** the surface writes submissions to a file (e.g., appends to the state file, or drops one file per submission into a directory) and the agent runs on a host with an OS-level watch primitive available.
 - **What's needed:** a watcher (`fswatch`, `inotifywait`, equivalent) and a deterministic write pattern from the server side so the agent knows what to re-read on each event. The reference Go server supports this directly via `--drain-mode fs`: each submission lands as one atomically-written JSON file under `<state-dir>/submissions/`, named `<unix-ns>-<id>.json`. A directory-of-files shape is friendlier to watchers than appending to a single file (one event per submission with no offset bookkeeping); polling the state file is the equally-valid fallback when no OS watch primitive is available.
 - **Tradeoffs:** push-driven via the OS without requiring a stream contract from the server, but depends on OS-specific primitives and on the server's write granularity being friendly to watchers (atomic rename, append-only). The drop-directory keeps a queue on disk — consumption (and cleanup) is the draining agent's responsibility, not the server's.
 
-### Push webhook into the agent (environment-dependent)
+**Claude Code and Codex:** both can shell out to `fswatch` (macOS) or `inotifywait` (Linux) via a `Bash` call (Claude Code) or a subprocess tool call (Codex). The watcher is OS-level — no harness-specific primitive needed on either side. A polling fallback (loop over directory contents) works identically in both environments and requires no OS watcher at all.
+
+### Push webhook into the agent
 
 - **When it fits:** remote or channel-driven setups where the agent isn't co-located with the surface and exposes a callback URL that the surface can POST to.
 - **What's needed:** an inbound HTTP endpoint the agent listens on (or the harness exposes), plus the surface configured to POST submission events to it.
-- **Tradeoffs:** push-driven and topology-agnostic across machines and channels, but requires the agent to be addressable from the surface and currently has limited primitive support in CC — named here as the abstract shape for non-CC or future environments.
+- **Tradeoffs:** push-driven and topology-agnostic across machines and channels, but requires the agent to be addressable from the surface.
+
+**Claude Code:** no built-in inbound HTTP primitive; the natural approach is a helper process that binds a port and writes events to a file or stdout that the agent can read. **Codex:** the OpenAI platform exposes an action callback URL for each run; the surface can POST to it directly, delivering submissions as tool results without any agent-side listener. Either way, the surface is configured at mint time with the callback URL.
 
 ## Server lifetime vs. drain lifetime
 
@@ -242,9 +250,9 @@ of wiring `fetch` on submit instead of a KV append.
 
 ## Cadence guidance
 
-Push-driven mechanisms (Monitor, filesystem watch, push webhook) deliver events at event-time — the agent reacts as soon as a submission lands. No cadence to tune.
+Push-driven mechanisms (subprocess stdout stream, filesystem watch, push webhook) deliver events at event-time — the agent reacts as soon as a submission lands. No cadence to tune.
 
-Polling mechanisms (`ScheduleWakeup`, `/loop`) trade latency for portability. Match the polling period to the task's latency tolerance: seconds for interactive approval gates where the user is sitting at the URL; minutes for async approval gates where the user may take a while; longer still for "check once an hour for a daily-digest reply." Don't poll faster than the task needs; the wake-up cost is real.
+Scheduled wake-up mechanisms trade latency for portability. Match the polling period to the task's latency tolerance: seconds for interactive approval gates where the user is sitting at the URL; minutes for async approval gates where the user may take a while; longer still for "check once an hour for a daily-digest reply." Don't poll faster than the task needs; the wake-up cost is real.
 
 ## Beyond the pattern
 

@@ -1,7 +1,7 @@
 {
   "name": "surface",
   "description": "Ad-hoc structured input from one or more recipients via flexible, distributable interfaces. Generates ephemeral UI surfaces with opaque-ID affordances, delivers URLs through any outbound channel, and autonomously drains submissions to react. Also covers runbook delivery: a list of shell commands the user works through one at a time, with per-step copy affordances and done buttons.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "author": {
     "name": "Andrew Cove"
   },
