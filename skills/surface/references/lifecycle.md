@@ -254,6 +254,36 @@ Push-driven mechanisms (subprocess stdout stream, filesystem watch, push webhook
 
 Scheduled wake-up mechanisms trade latency for portability. Match the polling period to the task's latency tolerance: seconds for interactive approval gates where the user is sitting at the URL; minutes for async approval gates where the user may take a while; longer still for "check once an hour for a daily-digest reply." Don't poll faster than the task needs; the wake-up cost is real.
 
+## When no submissions arrive
+
+At some point the drain loop has been running long enough — or the cadence has fired enough times — that the agent must decide whether to keep waiting or give up. The pattern doesn't name that threshold. The agent does, based on what it knows about the recipient, the urgency, the channel, and the task.
+
+### Recognizing the no-submission window
+
+The question isn't "has the timeout elapsed?" — it's "do I have enough signal to conclude this surface isn't going to get submissions?" Useful signals: time since the surface was delivered, whether the URL was ever opened, what the agent knows about the recipient's schedule, and whether the task behind the surface is still relevant.
+
+### Per-mechanism examples (cadence shapes, not prescriptions)
+
+**Push-stream (subprocess stdout / Monitor).** The drain loop fires on arrival; no submissions means no events. If you've been tailing the server's stdout for a while and you know the recipient is in a different time zone and offline, you might decide to break out of the Monitor loop, leave the server running (or kill it), and re-deliver via a different channel — or file an ask for the operator. If the surface is a one-shot approval gate and the author of the PR has gone quiet for a weekend, breaking the loop after an extended quiet window and parking the approval is a reasonable call.
+
+**Scheduled wake-ups.** Each wake-up is a natural checkpoint. If you've fired five wake-ups over a few hours and the state file still shows no submissions, you might decide the surface has been idle long enough to warrant action — especially if the underlying task has a deadline. Alternatively, a surface attached to a low-urgency daily-digest workflow might legitimately run for days with no submissions before the agent acts on the silence.
+
+**Filesystem drop-directory watch.** The watcher fires on submissions; absence of events means no drops. If the directory has been empty across several watch intervals and the agent knows the surface was delivered to someone likely to respond quickly, silence is signal. If the surface is backing a batch-review queue that may go days between submissions, the same silence is expected.
+
+**Push webhook.** The agent receives no callback. If a deadline has passed and the surface was sent to a recipient known to be responsive — and the webhook infrastructure is healthy — no callback after an extended window is meaningful signal to act on.
+
+### Options when the agent decides to give up
+
+These are not mutually exclusive and not ordered by preference. Pick what fits the task:
+
+- **Discard the surface:** kill the server (if running), delete state files, and treat the surface as expired. Appropriate when the underlying task is no longer live, the deadline has passed, or the lack of response is itself a meaningful signal.
+- **Re-deliver via a different channel:** if the original channel was email and the recipient hasn't responded, try a push notification or log a message somewhere the recipient is more likely to see it. `reach` is the preferred delivery tool when available.
+- **File an ask for the operator:** if the decision can't be made without human judgment — e.g., "no one approved the PR; should I close it or escalate?" — file an ask rather than taking unilateral action.
+- **Persist the affordance state for later resumption:** leave the server running (or the state file intact) and re-arm the drain on the next scheduled invocation. Useful when the surface is part of a long-running workflow that doesn't expect rapid turnaround.
+- **Treat silence as a response:** for surfaces where "no action" has a defined meaning (a nightly review no one corrects means "everything is fine"), record the absence and move on.
+
+The agent's knowledge of the task, the recipient, and the operational context determines which of these fits. The pattern names the options; the agent picks.
+
 ## Beyond the pattern
 
 Timeouts (user never clicks), idempotency (the same submission seen twice — duplicate Monitor delivery, retried multipart upload), retry, recovery after server crash, concurrent surfaces, port choice, and state-file lifecycle are agent responsibilities, not pattern responsibilities. See `pattern.md` §"Beyond the pattern" for the full list. The pattern fixes the *requirement* of autonomous draining; the agent decides how robust the loop around it needs to be for the task at hand.
