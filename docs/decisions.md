@@ -8,6 +8,16 @@ This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`)
 
 ---
 
+## 2026-05-28 · Multi-recipient attribution is a caller concern; the trust boundary is named, not enforced
+
+**Request:** Should the hosted worker support a `recipients` field at provision time, generating per-recipient URLs or tokens so submissions are attributed by construction rather than honor-system? Trigger: a Japan-trip-planning dogfood surface where two people submitted independently and self-declared identity via a "who are you?" button.
+
+**Decision:** Option 3 — name the trust boundary explicitly in the skill docs and keep attribution honor-system by default. Per-recipient URLs are already the recommended path in `security.md` §7; the caller layers them when attribution matters. No schema change, no wire change, no `recipients` field in the hosted worker.
+
+**Reasoning:** The skill already answers this question. `security.md` §7 names three attribution options — anonymous, per-recipient URLs, and sign-in — and calls per-recipient URLs "the v2-recommended middle ground for attributed multi-recipient use." The mechanism is already present: the agent mints one session per recipient (or uses a recipient-scoped token in the URL path). What is absent is a prescriptive `recipients` field in the provisioning schema. Adding that field would push operational state the agent should own into the hosted substrate, require the substrate to implement a new key-scoping concept, and — most importantly — contradict the "trust the agent" core principle. The agent can already derive per-recipient attribution from the pattern + security.md alone. Baking it into the wire as a first-class concept prescribes the one mechanism where the agent should exercise judgment (and might legitimately pick anonymous for low-stakes surfaces). The dogfood pain point (honor-system ID) is real but narrow: it reveals a docs gap, not a pattern gap. The fix is making security.md §7 more prominent in SKILL.md, not extending the wire. The trust boundary stands as documented: multi-recipient surface attribution is honor-system unless the caller layers per-recipient URLs; cryptographic attribution is out of scope for the pattern.
+
+---
+
 ## 2026-05-28 · itemId affordance grouping is a caller concern, not a surface concern
 
 **Request:** surface-voice-triage asked for the ability to group multiple affordances by a shared `itemId` on drain — so the agent receives a `(itemId, [submissions])` structure rather than flat submissions.
