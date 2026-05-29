@@ -2,6 +2,15 @@
 
 `surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, four reference servers (Go, Python, Node, Rust) for the local-loopback substrate, and a Cloudflare Worker reference for the hosted substrate. No installable binary yet.
 
+## Why surface (and why not a form)
+
+The honest objection is "isn't this just a web form?" The answer is no, and the reason is the shift in *who builds it and how disposable it is*:
+
+- **The cost of bespoke collapsed to the cost of asking.** A form builder gives you fixed fields and one respondent. surface lets an agent generate a UI *shaped to the task* — a drag-to-rank, a floor-plan annotator, a refereed two-player game, a flagged-transactions review with per-row decisions — in the time it takes to describe it, then throw it away. When making a custom interactive surface gets that cheap, the calculus flips: interactions that were never worth building a UI for (too one-off, too oddly-shaped, too ephemeral) become worth a surface, because nobody has to build and own anything.
+- **The URL carries the whole interaction.** Because the response surface lives at the URL, *any* outbound channel — email, SMS, push, a paging system — becomes a reply path, not just a notification. That reframes "the user isn't in chat" from a dead end into a delivery choice.
+- **Reactions are code, so monitoring is cheap.** The agent encodes the drain-and-react logic and lets it run; it only re-engages for submissions that genuinely need judgment. Watching a live surface is not an LLM-call-per-interaction tax — the mechanical reactions cost nothing once written.
+- **Ephemeral by design.** surface is for the moment, not forever. For durable, recurring needs, a real app or form tool is the right call — and the skill says so. The boundary is the point: surface fills the gap *below* the threshold where standing up and maintaining a tool makes sense.
+
 ## Install
 
 The repo is packaged for both Claude Code and Codex. The actual skill bundle lives under `skills/surface/` and is harness-neutral — the same skill bytes load on either harness. Only the packaging wrapper differs.
