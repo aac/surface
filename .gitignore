@@ -22,6 +22,7 @@ __pycache__/
 .act/index.db
 .ask/
 .act/
+.claude/settings.json
 .claude/settings.local.json
 .claude/scheduled_tasks*
 .claude/worktrees/
