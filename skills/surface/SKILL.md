@@ -1,6 +1,6 @@
 ---
 name: surface
-version: 0.2.0
+version: 0.3.0
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking, drag-rank, drawing or annotation, structured forms, async approval gates, multi-recipient surfaces where several people respond to the same prompt, collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares where a surface is delivered to someone other than the operator, situations where the user isn't in chat and the outbound channel (email, SMS, push, paging) can only carry a URL, runbook delivery where the user works through a list of shell commands one at a time with per-step copy affordances and done buttons, information-dense surfaces where rich context (tables, grids, flagged data, clinical narratives, multi-paragraph summaries) needs to appear alongside multiple granularities of structured input on one page. The agent generates a task-shaped page of opaque-ID affordances, ships the URL through whatever channel reaches the recipients, and autonomously drains submissions to react. Not for simple in-chat questions, durable apps or persistent products, or interactions the agent can self-resolve.
 ---
 
@@ -113,6 +113,8 @@ Surface benefits from a setup-time discovery step that records what substrates a
 `examples/tic-tac-toe.html` + `examples/tic-tac-toe.md` are a worked capability demo: a tic-tac-toe board rendered with [tldraw](https://tldraw.dev) where each move submits through the wire envelope and the agent drains-and-reacts (plays O) — a concrete illustration of the pattern on a richer rendering substrate than a plain form. Illustrative, not normative.
 
 For sessions that span multiple rounds — initial collection, agent-side synthesis, a voting surface, and an optional tiebreaker — see `references/multi-round.md`.
+
+`references/websocket-example.md` shows the pattern carried over a WebSocket transport: submissions stream to the agent over a persistent connection (no poll loop, no stdout Monitor), and the agent can push state updates back over the same socket. Choose this when the task involves multiple rounds of agent response or the surface needs to reflect agent-computed results without a page reload. Illustrative, not normative.
 
 **The substrate-agnostic test.** If you're porting surface to another substrate, the question is "can I build a working surface server from the docs in §3–§5 and `references/`?" — not "does my impl match the Go (or Python, or Node) reference byte-for-byte?" Operational details (port, watchdog, error statuses, body-cap policy, Cache-Control specifics) should be chosen on what's idiomatic for the target substrate. Cross-impl divergence on those details is signal that the pattern is being independently derived from the docs; cross-impl convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name, timestamp format) is signal that the docs nailed down the right things. Both are validation. The wrong test is comparing impl-to-impl as a conformance bar.
 
