@@ -1,0 +1,284 @@
+<!doctype html>
+<!--
+  surface example — tldraw tic-tac-toe board.
+
+  This is the *recipient-facing surface* for the tic-tac-toe capability demo
+  documented in examples/tic-tac-toe.md. It is rendered by the agent and served
+  unchanged at `GET /` by the reference server (examples/server.go). It speaks
+  only the documented wire: each human move POSTs `{id, payload}` to `/submit`
+  as application/json; the agent drains the resulting `SUBMIT <id> <payload>`
+  line, plays its reply, and rewrites the embedded board state below before
+  re-serving this file. Nothing here is normative — it is one illustration of
+  rendering a surface with tldraw and submitting moves through the surface
+  envelope.
+
+  Two things the agent fills in when it renders the page:
+    1. The `BOARD_STATE` script block — the authoritative game state the agent
+       owns (its id -> intent map projected to the board, plus whose turn it is
+       and any terminal result). The page renders from this; it never invents
+       state.
+    2. Nothing else. Affordance IDs for the nine cells live inside BOARD_STATE.
+
+  The page polls `GET /` on a short interval to pick up the agent's reply move
+  (the agent rewrites this file between turns). That keeps the whole demo inside
+  the two documented routes — `GET /` and `POST /submit` — with no extra wire.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>surface · tic-tac-toe</title>
+<link rel="stylesheet" href="https://esm.sh/tldraw@5.0.1/tldraw.css" />
+<!--
+  Single-React import map. tldraw renders with React, and its transitive deps
+  resolve their own React copy by default — which produces two Reacts on the
+  page and breaks hooks ("Cannot read properties of null (reading 'useRef')").
+  Pinning react / react-dom here and passing ?deps to tldraw forces every
+  module to share one React instance. Versions are pinned for reproducibility.
+-->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@19.2.6",
+    "react/": "https://esm.sh/react@19.2.6/",
+    "react-dom": "https://esm.sh/react-dom@19.2.6",
+    "react-dom/": "https://esm.sh/react-dom@19.2.6/",
+    "tldraw": "https://esm.sh/tldraw@5.0.1?deps=react@19.2.6,react-dom@19.2.6"
+  }
+}
+</script>
+<style>
+  :root { color-scheme: light dark; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+  #wrap { display: flex; flex-direction: column; height: 100%; }
+  header { padding: 10px 16px; border-bottom: 1px solid #8884; }
+  header h1 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+  #status { font-size: 13px; opacity: 0.8; }
+  #canvas { position: relative; flex: 1; min-height: 0; }
+  /* tldraw is read-only chrome here: we hide the editing UI and use the canvas
+     purely as a rendering + hit-testing surface for the 3x3 board. */
+  .tlui-layout__top, .tlui-menu-zone, .tlui-toolbar, .tlui-help-menu,
+  .tlui-navigation-zone, .tlui-style-panel, .tlui-debug-panel { display: none !important; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1>tic-tac-toe — a surface demo</h1>
+    <div id="status">loading…</div>
+  </header>
+  <div id="canvas"></div>
+</div>
+
+<!-- Authoritative board state, owned and rewritten by the agent. The nine
+     `cells` carry the opaque affordance id the agent minted for each square and
+     the mark currently on it ("X", "O", or null for empty). `turn` is whose
+     move it is ("human" or "agent"); `result` is null while in play, else a
+     short terminal string the agent set when it detected a win/draw. -->
+<script type="application/json" id="BOARD_STATE">
+{
+  "session_id": "REPLACE_SESSION_ID",
+  "turn": "human",
+  "result": null,
+  "cells": [
+    { "id": "REPLACE_CELL_0", "mark": null },
+    { "id": "REPLACE_CELL_1", "mark": null },
+    { "id": "REPLACE_CELL_2", "mark": null },
+    { "id": "REPLACE_CELL_3", "mark": null },
+    { "id": "REPLACE_CELL_4", "mark": null },
+    { "id": "REPLACE_CELL_5", "mark": null },
+    { "id": "REPLACE_CELL_6", "mark": null },
+    { "id": "REPLACE_CELL_7", "mark": null },
+    { "id": "REPLACE_CELL_8", "mark": null }
+  ]
+}
+</script>
+
+<script type="module">
+import {
+  Tldraw, createShapeId, toRichText,
+} from "tldraw";
+import * as React from "react";
+import { createRoot } from "react-dom/client";
+
+const HUMAN = "X";
+const AGENT = "O";
+
+function readBoardState() {
+  return JSON.parse(document.getElementById("BOARD_STATE").textContent);
+}
+
+// Grid geometry on the tldraw canvas. Three columns/rows of CELL px each.
+const CELL = 140;
+const ORIGIN = { x: 0, y: 0 };
+function cellRect(i) {
+  const col = i % 3, row = Math.floor(i / 3);
+  return { x: ORIGIN.x + col * CELL, y: ORIGIN.y + row * CELL };
+}
+
+let editor = null;
+let submitting = false;
+
+function setStatus(text) {
+  document.getElementById("status").textContent = text;
+}
+
+// Submit one move through the surface wire: POST {id, payload} as JSON to
+// /submit. The affordance id is the opaque id the agent minted for this cell;
+// the payload records what the recipient did. The page gates its UI on
+// response.ok per the wire guidance (a fetch promise resolves on any status).
+async function submitMove(cellIndex, affordanceId) {
+  if (submitting) return;
+  submitting = true;
+  setStatus("sending your move…");
+  try {
+    const res = await fetch("/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: affordanceId,
+        payload: { player: HUMAN, cell: cellIndex },
+      }),
+    });
+    if (!res.ok) {
+      submitting = false;
+      setStatus("move rejected (" + res.status + ") — try again");
+      return;
+    }
+    // Optimistically show the human's mark; the agent's authoritative rewrite
+    // (picked up by the poll loop) will reconcile.
+    drawMark(cellIndex, HUMAN);
+    setStatus("waiting for O…");
+  } catch (e) {
+    submitting = false;
+    setStatus("network error — try again");
+  }
+}
+
+// Render the static board: grid lines + any marks already in BOARD_STATE.
+function renderBoard() {
+  const state = readBoardState();
+  const ids = [];
+
+  // Grid lines as four thin geo rectangles (drawn as lines via tldraw geo).
+  for (let i = 1; i < 3; i++) {
+    const vId = createShapeId("grid-v-" + i);
+    const hId = createShapeId("grid-h-" + i);
+    ids.push(vId, hId);
+    editor.createShape({
+      id: vId, type: "geo",
+      x: ORIGIN.x + i * CELL - 1, y: ORIGIN.y,
+      props: { geo: "rectangle", w: 2, h: 3 * CELL, color: "grey", fill: "solid" },
+    });
+    editor.createShape({
+      id: hId, type: "geo",
+      x: ORIGIN.x, y: ORIGIN.y + i * CELL - 1,
+      props: { geo: "rectangle", w: 3 * CELL, h: 2, color: "grey", fill: "solid" },
+    });
+  }
+
+  state.cells.forEach((cell, i) => {
+    if (cell.mark) drawMark(i, cell.mark);
+  });
+
+  // Frame the board in the viewport.
+  editor.zoomToFit({ animation: { duration: 0 } });
+  return state;
+}
+
+function drawMark(i, mark) {
+  const { x, y } = cellRect(i);
+  const id = createShapeId("mark-" + i);
+  // Idempotent: if a shape with this id exists, leave it.
+  if (editor.getShape(id)) return;
+  editor.createShape({
+    id, type: "text",
+    x: x + CELL / 2 - 26, y: y + CELL / 2 - 44,
+    props: {
+      richText: toRichText(mark),
+      size: "xl",
+      color: mark === HUMAN ? "blue" : "red",
+      font: "draw",
+    },
+  });
+}
+
+// Map a canvas click to an empty cell index, if the click landed on the board.
+function cellAtPoint(pagePoint) {
+  const localX = pagePoint.x - ORIGIN.x;
+  const localY = pagePoint.y - ORIGIN.y;
+  if (localX < 0 || localY < 0 || localX >= 3 * CELL || localY >= 3 * CELL) return -1;
+  const col = Math.floor(localX / CELL);
+  const row = Math.floor(localY / CELL);
+  return row * 3 + col;
+}
+
+let lastRenderedSerial = "";
+
+// Poll GET / for the agent's rewritten state. We diff on a cheap serialization
+// of marks+turn+result so we only re-render when the agent actually moved.
+async function pollForReply() {
+  try {
+    const res = await fetch("/", { cache: "no-store" });
+    const text = await res.text();
+    const doc = new DOMParser().parseFromString(text, "text/html");
+    const block = doc.getElementById("BOARD_STATE");
+    if (!block) return;
+    const fresh = JSON.parse(block.textContent);
+    const serial = JSON.stringify([fresh.cells.map(c => c.mark), fresh.turn, fresh.result]);
+    if (serial === lastRenderedSerial) return;
+    lastRenderedSerial = serial;
+
+    // Reconcile marks the agent set.
+    fresh.cells.forEach((cell, i) => { if (cell.mark) drawMark(i, cell.mark); });
+    document.getElementById("BOARD_STATE").textContent = JSON.stringify(fresh);
+    submitting = fresh.turn !== "human";
+
+    if (fresh.result) {
+      setStatus(fresh.result);
+    } else {
+      setStatus(fresh.turn === "human" ? "your move (X) — click a square" : "waiting for O…");
+    }
+  } catch (e) { /* transient; next tick retries */ }
+}
+
+// Boot tldraw, render the board, wire clicks, start the reply poll.
+function App() {
+  return React.createElement(Tldraw, {
+    forceMobile: false,
+    onMount: (ed) => {
+      editor = ed;
+      window.__ttt_editor = ed; // exposed for debugging / verification
+      // Create the board shapes first; readonly mode (set below) blocks
+      // mutations, so it must come after rendering. We disable the user's
+      // editing tools rather than the store so the agent can still reconcile.
+      const initial = renderBoard();
+      ed.setCurrentTool("select");
+      lastRenderedSerial = JSON.stringify([initial.cells.map(c => c.mark), initial.turn, initial.result]);
+      setStatus(
+        initial.result ? initial.result
+        : initial.turn === "human" ? "your move (X) — click a square"
+        : "waiting for O…"
+      );
+
+      // Click handling: tldraw is read-only, so pointer events surface as
+      // canvas clicks we translate to a cell index.
+      ed.getContainer().addEventListener("pointerdown", (ev) => {
+        const state = readBoardState();
+        if (state.turn !== "human" || state.result) return;
+        const pagePoint = ed.screenToPage({ x: ev.clientX, y: ev.clientY });
+        const idx = cellAtPoint(pagePoint);
+        if (idx < 0) return;
+        if (state.cells[idx].mark) return; // occupied
+        submitMove(idx, state.cells[idx].id);
+      });
+
+      setInterval(pollForReply, 1200);
+    },
+  });
+}
+
+createRoot(document.getElementById("canvas")).render(React.createElement(App));
+</script>
+</body>
+</html>

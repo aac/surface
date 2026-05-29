@@ -18,6 +18,9 @@ __pycache__/
 .idea/
 .vscode/
 
+# Playwright MCP verification artifacts (screenshots, console/snapshot dumps)
+.playwright-mcp/
+
 # act
 .act/index.db
 .ask/
