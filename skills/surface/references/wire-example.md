@@ -198,8 +198,7 @@ The wire doesn't care.
 
 ## Session walkthrough
 
-A concrete one-affordance round-trip, mirroring `docs/brief.md`
-§"What a session looks like" but at the wire layer.
+A concrete one-affordance round-trip, end to end at the wire layer.
 
 ### 1. Agent designs the surface
 

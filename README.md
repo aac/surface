@@ -4,12 +4,25 @@
 
 ## Why surface (and why not a form)
 
+Agents already have three ways to collect structured input, each with a gap: a **chat reply** (unstructured, and only if the user is in chat), an **inline chat-client widget** (structured, but trapped inside a supported chat surface), or a **purpose-built app or form** (full UI, but real build-and-maintain cost). surface fills the space between them — task-shaped UI the agent generates for the moment and discards.
+
 The honest objection is "isn't this just a web form?" The answer is no, and the reason is the shift in *who builds it and how disposable it is*:
 
 - **The cost of bespoke collapsed to the cost of asking.** A form builder gives you fixed fields and one respondent. surface lets an agent generate a UI *shaped to the task* — a drag-to-rank, a floor-plan annotator, a refereed two-player game, a flagged-transactions review with per-row decisions — in the time it takes to describe it, then throw it away. When making a custom interactive surface gets that cheap, the calculus flips: interactions that were never worth building a UI for (too one-off, too oddly-shaped, too ephemeral) become worth a surface, because nobody has to build and own anything.
 - **The URL carries the whole interaction.** Because the response surface lives at the URL, *any* outbound channel — email, SMS, push, a paging system — becomes a reply path, not just a notification. That reframes "the user isn't in chat" from a dead end into a delivery choice.
 - **Reactions are code, so monitoring is cheap.** The agent encodes the drain-and-react logic and lets it run; it only re-engages for submissions that genuinely need judgment. Watching a live surface is not an LLM-call-per-interaction tax — the mechanical reactions cost nothing once written.
 - **Ephemeral by design.** surface is for the moment, not forever. For durable, recurring needs, a real app or form tool is the right call — and the skill says so. The boundary is the point: surface fills the gap *below* the threshold where standing up and maintaining a tool makes sense.
+
+## Not in scope (yet)
+
+surface deliberately ships narrow and grows on real-use signal. Currently out of scope:
+
+- **A bundled/installable server binary.** v0 is skill-only — the reference servers in `skills/surface/examples/` exist to be read and re-implemented, not installed. A canonical `surface-serve` is a v1 question.
+- **Templating / surface-authoring helpers.** The agent writes the HTML/JS directly; a helper layer waits on friction signal.
+- **Substantive prompt-injection mitigation patterns.** `references/security.md` names the caution; deeper sanitization guidance accrues as real untrusted-input use does.
+- **Persistent surfaces, link expiration, one-time-use semantics.** Surfaces are ephemeral; agents handle lifetime in their own state if they need it.
+
+(Hosted deployment and a push/WebSocket transport were once on this list — both have since shipped, as `references/hosted-example.md` and `references/websocket-example.md`.)
 
 ## Install
 
@@ -110,13 +123,14 @@ Three of the four local references (Python, Node, Rust) were built without their
 | `README.md` | This file. |
 | `LICENSE` | Apache 2.0. |
 | `AGENTS.md` | Conventions for agents and contributors working on `surface` itself (load-bearing design principles, branch policy, halt conditions). `CLAUDE.md` is a thin shim that imports it so Claude Code auto-loads it. |
-| `docs/brief.md` | Converged v0 design — pattern, wire, lifecycle, skill structure, security stance, out-of-scope. |
+| `docs/decisions.md` | Running log of substantive design choices and rejected proposals, with reasoning. |
 | `skills/surface/go.mod` | Go module declaration for the reference server. |
 
 ## Where the design lives
 
-- **`docs/brief.md`** — the converged v0 design. Start here if you want to understand the shape of the pattern, the wire example, lifecycle mechanisms, and what was deliberately left out of v0.
+- **`skills/surface/SKILL.md`** + **`references/`** — the canonical design: the pattern, the wire example, lifecycle mechanisms, security stance. Start here to understand the shape of the thing.
 - **`AGENTS.md`** — the load-bearing principles (trust the agent, pattern is the contract, autonomous draining is foundational). Read before changing anything in the skill bundle. (`CLAUDE.md` just imports this for Claude Code.)
+- **`docs/decisions.md`** — why specific design calls were made (and why proposals were rejected). Read before re-opening a settled question.
 
 ## Privacy / telemetry
 

@@ -1,8 +1,8 @@
-# poke — design decisions log
+# surface — design decisions log
 
-Running record of substantive design choices and notable rejected proposals for the poke project. Reverse-chronological (newest at top). The goal is to prevent re-litigation: when a proposal comes up that's been considered before, the reasoning is here.
+Running record of substantive design choices and notable rejected proposals for the surface project. Reverse-chronological (newest at top). The goal is to prevent re-litigation: when a proposal comes up that's been considered before, the reasoning is here. (Entries dated before the rename still say "poke" — the project's former name; left as point-in-time record.)
 
-This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`). Entries belong here when they capture a design-semantics call — especially a "no, because..." — with reasoning that will still matter in six months.
+This is **not** a changelog of every commit, nor a wire spec (that's `skills/surface/references/wire-example.md`). Entries belong here when they capture a design-semantics call — especially a "no, because..." — with reasoning that will still matter in six months.
 
 **When to add an entry:** a substantive design choice is made, or a notable proposal is rejected on principle grounds. Routine implementation choices and ticket-level work breakdowns stay out — those live in `act` history and commit messages.
 
@@ -134,7 +134,7 @@ Andrew reviewed the `arc-reach-surface-v2` umbrella design brief and provided fe
 
 **Proposal (implicit, from earlier dispatch shape):** validate alternative-substrate ports by comparing them byte-for-byte against existing sibling implementations (Go, Python, etc.).
 
-**Decision:** rejected. The validating question is "can the agent build a working poke-like server from `SKILL.md`, `references/`, and the brief alone?" — not "does it match an existing sibling impl byte-for-byte?" Codified in `brief.md` §"The substrate-agnostic test (methodology)" and in commit `011bc3c` (act-6fb6).
+**Decision:** rejected. The validating question is "can the agent build a working poke-like server from `SKILL.md`, `references/`, and the brief alone?" — not "does it match an existing sibling impl byte-for-byte?" Codified in `AGENTS.md` §"Testing the skill" and in commit `011bc3c` (act-6fb6).
 
 **Reasoning:** dispatching a fresh references-only port with instructions to "mirror Go" defeats the test at the dispatch layer — the new impl ends up cloning a sibling's operational choices rather than independently deriving them. Operational divergence (port choice, watchdog details, error statuses, body-cap policy, Cache-Control specifics) is signal of validation, not failure. Convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name, RFC3339 timestamps) is signal the docs pinned the right things.
 
@@ -164,7 +164,7 @@ Andrew reviewed the `arc-reach-surface-v2` umbrella design brief and provided fe
 
 **Proposal:** ship a `poke-serve` binary (or equivalent installable tool) in v0 alongside the skill.
 
-**Decision:** deferred to v1. v0 ships only the skill bundle — `SKILL.md`, `references/`, `examples/server.go` as a reference impl agents read and re-implement themselves. Recorded in `brief.md` §"Out of scope."
+**Decision:** deferred to v1. v0 ships only the skill bundle — `SKILL.md`, `references/`, `examples/server.go` as a reference impl agents read and re-implement themselves. Recorded in `README.md` §"Not in scope (yet)."
 
 **Reasoning:** "ship the narrow shape, grow based on real usage" (principle borrowed from `ask`). The Go reference exists to be read and re-implemented, not installed. v0's job is to prove the pattern works on docs alone — the substrate-agnostic test. If that test passes, v1 can wrap a canonical implementation; if it doesn't, a bundled binary wouldn't have fixed anything.
 
@@ -186,4 +186,4 @@ Andrew reviewed the `arc-reach-surface-v2` umbrella design brief and provided fe
 
 **Decision:** rejected. Security lives in `references/security.md`, lazy-loaded.
 
-**Reasoning:** SKILL.md stays focused on the pattern. Caveats inlined into the entry point dilute the value of the skill and crowd out the load-bearing content. The reference is one click away; agents that need it will load it. Recorded in CLAUDE.md core principles and in `brief.md` §"Skill structure."
+**Reasoning:** SKILL.md stays focused on the pattern. Caveats inlined into the entry point dilute the value of the skill and crowd out the load-bearing content. The reference is one click away; agents that need it will load it. Recorded in `AGENTS.md` core principles (§"Security lives in its own reference").
