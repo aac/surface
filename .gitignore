@@ -31,3 +31,6 @@ __pycache__/
 .claude/worktrees/
 docs/session-artifacts/
 .wrangler/
+
+# Operator/session artifacts (not part of the public tree)
+docs/session-handoff.md

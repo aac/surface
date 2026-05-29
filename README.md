@@ -109,16 +109,14 @@ Three of the four local references (Python, Node, Rust) were built without their
 |---|---|
 | `README.md` | This file. |
 | `LICENSE` | Apache 2.0. |
-| `CLAUDE.md` | Conventions for agents working on `surface` itself (load-bearing design principles, branch policy, halt conditions). |
+| `AGENTS.md` | Conventions for agents and contributors working on `surface` itself (load-bearing design principles, branch policy, halt conditions). `CLAUDE.md` is a thin shim that imports it so Claude Code auto-loads it. |
 | `docs/brief.md` | Converged v0 design — pattern, wire, lifecycle, skill structure, security stance, out-of-scope. |
-| `docs/plan.md` | v0 implementation plan. |
-| `docs/session-handoff.md` | Cross-session context for agents picking up work. |
 | `skills/surface/go.mod` | Go module declaration for the reference server. |
 
 ## Where the design lives
 
 - **`docs/brief.md`** — the converged v0 design. Start here if you want to understand the shape of the pattern, the wire example, lifecycle mechanisms, and what was deliberately left out of v0.
-- **`CLAUDE.md`** — the load-bearing principles (trust the agent, pattern is the contract, autonomous draining is foundational). Read before changing anything in the skill bundle.
+- **`AGENTS.md`** — the load-bearing principles (trust the agent, pattern is the contract, autonomous draining is foundational). Read before changing anything in the skill bundle. (`CLAUDE.md` just imports this for Claude Code.)
 
 ## Privacy / telemetry
 

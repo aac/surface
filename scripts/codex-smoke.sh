@@ -199,7 +199,7 @@ ok "plugin.json version: $PLUGIN_VERSION"
 
 if [[ "$SKILL_VERSION" != "$PLUGIN_VERSION" ]]; then
   warn "Version mismatch: SKILL.md=$SKILL_VERSION vs .codex-plugin/plugin.json=$PLUGIN_VERSION"
-  warn "These should be in lockstep per CLAUDE.md versioning rule."
+  warn "These should be in lockstep per AGENTS.md versioning rule."
 fi
 
 # ---------------------------------------------------------------------------

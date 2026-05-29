@@ -13,7 +13,7 @@ Describe the gap or limitation you're running into.
 What would you add or change?
 
 **Design notes**
-For skill or reference changes: have you read [`docs/decisions.md`](../../docs/decisions.md) to check whether this has been considered before? Have you checked that the proposal is consistent with the [core principles](../../CLAUDE.md)?
+For skill or reference changes: have you read [`docs/decisions.md`](../../docs/decisions.md) to check whether this has been considered before? Have you checked that the proposal is consistent with the [core principles](../../AGENTS.md)?
 
 **Alternatives considered**
 Any other approaches you thought about.

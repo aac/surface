@@ -8,7 +8,7 @@ For design proposals — changes to the skill content, core pattern, or referenc
 
 ## The core principles are load-bearing
 
-[`CLAUDE.md`](CLAUDE.md) lists the design principles that govern this project. They are not style preferences — they encode specific failure modes observed during development. Read them before proposing changes to `skills/surface/SKILL.md` or anything under `skills/surface/references/`.
+[`AGENTS.md`](AGENTS.md) lists the design principles that govern this project. They are not style preferences — they encode specific failure modes observed during development. Read them before proposing changes to `skills/surface/SKILL.md` or anything under `skills/surface/references/`.
 
 ## Pull requests
 
