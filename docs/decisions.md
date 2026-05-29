@@ -8,6 +8,16 @@ This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`)
 
 ---
 
+## 2026-05-29 · A surface must explain itself — what / to-do / why
+
+**Request:** While dogfooding live demo surfaces (a flagged-transactions review and a WebSocket deploy gate), Andrew noted that surfaces "need to make sure they contain enough info to explain to the user what they're doing, what they need to do, and why." The demo surfaces had functional affordances but thin framing.
+
+**Decision:** Added Rule 6 to SKILL.md §6 "Designing affordances": **the surface explains itself.** The page must answer, on its own, what it is, what the recipient must do, and why it matters (what the agent does with the response). Positioned as the recipient-facing complement to Rule 4 (honest confirmations) — Rule 4 keeps the confirmation honest, Rule 6 keeps the invitation sufficient. Version bumped 0.3.1 → 0.4.0 (new rule = minor) in SKILL.md and plugin.json lockstep.
+
+**Reasoning:** This follows directly from the defining property in §1 — *the URL carries the whole interaction*. The corollary the skill hadn't made explicit: if the URL carries everything, the page may be all the recipient has. A recipient frequently opens the surface cold — out of the chat context that motivated it, sometimes a third party (the "third-party shares" use case) who never saw the agent's reasoning, sometimes the operator returning hours later. The existing rules covered *mechanism* quality (minimum-effort affordance, escape hatch, one-intent-per-affordance, honest confirmations, surface owns the result) but none covered whether the recipient can *understand the ask at all*. A surface with perfect affordances still fails if the recipient doesn't know what they're deciding or why. This is a build principle, not a wire/pattern change — no schema touched. It belongs in the skill (not project memory) per the project-memory policy: anything influencing how agents *use* the skill ships with the skill so every user has it, not just this repo's developers.
+
+---
+
 ## 2026-05-29 · Information display is a primary, named use case
 
 **Request:** Surface's use cases should explicitly include that a rendered surface is often a better way to show users information than chat text or a static document — not just as a qualifier on input collection. Source: gmail-cleanup dogfood observation (line 17).
