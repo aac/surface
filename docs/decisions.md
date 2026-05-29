@@ -8,6 +8,16 @@ This is **not** a changelog of every commit, nor a wire spec (that's `brief.md`)
 
 ---
 
+## 2026-05-29 · Information display is a primary, named use case
+
+**Request:** Surface's use cases should explicitly include that a rendered surface is often a better way to show users information than chat text or a static document — not just as a qualifier on input collection. Source: gmail-cleanup dogfood observation (line 17).
+
+**Decision:** Added information display as a primary named use case in SKILL.md §2 (new bullet, new table row) and frontmatter description. README opening framing updated to call this out. No change to the pattern or wire; this is a use-case framing addition only.
+
+**Reasoning:** The skill already gestured at this in the "information-dense surfaces" bullet, but only as a qualifier — "display rich context *alongside* input controls." The insight from the gmail-cleanup dogfood is that surface earns its value for pure information display too: a rendered table of flagged transactions, a grouped list of candidates, a dashboard row — all communicate at a glance what chat walls cannot. Making this a first-class named use case (rather than a consequence of input-collection framing) helps agents reach for surface in the right moments. The defining property remains "ad-hoc input via a flexible, easily distributable interface"; information display is a strong complementary framing for the *display* half of the surface's value, not a replacement of the definition.
+
+---
+
 ## 2026-05-28 · Multi-recipient attribution is a caller concern; the trust boundary is named, not enforced
 
 **Request:** Should the hosted worker support a `recipients` field at provision time, generating per-recipient URLs or tokens so submissions are attributed by construction rather than honor-system? Trigger: a Japan-trip-planning dogfood surface where two people submitted independently and self-declared identity via a "who are you?" button.

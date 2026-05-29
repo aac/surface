@@ -1,6 +1,6 @@
 # surface
 
-`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. v0 ships the skill bundle, four reference servers (Go, Python, Node, Rust) for the local-loopback substrate, and a Cloudflare Worker reference for the hosted substrate. No installable binary yet.
+`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, four reference servers (Go, Python, Node, Rust) for the local-loopback substrate, and a Cloudflare Worker reference for the hosted substrate. No installable binary yet.
 
 ## Install
 
