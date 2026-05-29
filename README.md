@@ -1,6 +1,6 @@
 # surface
 
-`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, four reference servers (Go, Python, Node, Rust) for the local-loopback substrate, and a Cloudflare Worker reference for the hosted substrate. No installable binary yet.
+`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, two reference servers (Go, Python) for the local-loopback substrate, and a hosted-substrate wire walkthrough (`references/hosted-example.md`). No installable binary yet; additional clean-room references (Node, Rust, a Cloudflare Worker) are planned.
 
 ## Why surface (and why not a form)
 
@@ -95,19 +95,14 @@ Each harness loads `skills/surface/SKILL.md` and what it explicitly references; 
 | `skills/surface/references/pattern.md` | The substrate-agnostic pattern. The contract every implementation must preserve. |
 | `skills/surface/references/wire-example.md` | One concrete wire (HTTP + JSON over localhost). Illustrative, not normative. |
 | `skills/surface/references/lifecycle.md` | The mechanism space for autonomous draining (Monitor, polling, fs watch, push webhook). |
-| `skills/surface/references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. Concrete CSRF + URL-unguessability notes from the worker reference. |
+| `skills/surface/references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. CSRF + URL-unguessability notes for non-loopback deployments. |
 | `skills/surface/references/hosted-example.md` | Cloudflare Worker + KV wire walkthrough — sibling to `wire-example.md`, for the hosted substrate. |
 | `skills/surface/examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `skills/surface/examples/server_test.go` | Tests for the Go reference. |
-| `skills/surface/examples/reveal/reveal.go` | Minimal inline-reveal example for Rule 5 (the surface owns the result). Click → /submit returns the reveal payload → page swaps it into an inline panel. Stdlib only. |
 | `skills/surface/examples/server.py` | Python stdlib reference, independently derived from the references (not Go-mirrored). Diverges from the Go sibling on operational details (port 8000, no parent-death watchdog, hard 32 MiB multipart cap) — same wire contract. |
-| `skills/surface/examples/test_server.py` | Tests for the Python reference. |
-| `skills/surface/examples/server.mjs` | Node reference (single-file ESM, stdlib only). Independently derived from the references. |
-| `skills/surface/examples/server.test.mjs` | Tests for the Node reference (uses `node:test`). |
-| `skills/surface/examples/rust/` | Rust reference as a Cargo project. Uses `tiny_http` + `multipart`; sync HTTP rather than async. Independently derived from the references. |
-| `skills/surface/examples/worker/` | Cloudflare Worker + KV reference for the hosted substrate. Deploy with `cd skills/surface/examples/worker && npm install && wrangler deploy`. See `skills/surface/references/hosted-example.md` for the wire and `skills/surface/examples/worker/README.md` for the deploy story. |
+| `skills/surface/examples/tic-tac-toe.html`, `tic-tac-toe.md` | Worked capability demo — a tldraw tic-tac-toe surface (the recipient plays, the agent drains moves and replies on the board), with the `.md` explaining how it maps onto the pattern. |
 
-Three of the four local references (Python, Node, Rust) were built without their authors reading the existing siblings — they derived the impl from `skills/surface/references/` alone. The operational divergences between them (different ports, different watchdog choices, different error-status policies) are the validation: the pattern survives independent re-derivation across multiple substrates.
+The Python reference was built without its author reading the Go sibling — derived from `skills/surface/references/` alone. The operational divergences (different port, different watchdog choice, different error-status policy) are the validation: the pattern survives independent re-derivation. Additional clean-room references (Node, Rust, a hosted Cloudflare Worker) are planned the same way — each derived references-only, not ported — and aren't in the tree yet.
 
 **Packaging** (harness-specific plugin wrappers, not loaded as part of the skill):
 
