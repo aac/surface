@@ -23,9 +23,9 @@ These are the through-lines from the design conversation. They override surface-
 
 ## Versioning
 
-`skills/surface/SKILL.md` frontmatter carries a `version:` field. `.claude-plugin/plugin.json` carries the same `version`. Andrew uses these to eyeball-compare what's loaded in Cowork / Claude Desktop against what's in this repo without diffing the full bytes.
+`skills/surface/SKILL.md` frontmatter carries a `version:` field. **Both** plugin manifests — `.claude-plugin/plugin.json` and `.codex-plugin/plugin.json` — carry the same `version`. Andrew uses these to eyeball-compare what's loaded in Cowork / Claude Desktop / Codex against what's in this repo without diffing the full bytes.
 
-**Rule:** any landing that changes skill content (`skills/surface/SKILL.md`, anything under `skills/surface/references/`, anything under `skills/surface/examples/`) bumps **both** `version:` strings together. Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
+**Rule:** any landing that changes skill content (`skills/surface/SKILL.md`, anything under `skills/surface/references/`, anything under `skills/surface/examples/`) bumps **all three** `version:` strings together (SKILL.md + both plugin manifests). Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
 
 ## Project trackers (active)
 
