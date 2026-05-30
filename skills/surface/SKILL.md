@@ -1,6 +1,6 @@
 ---
 name: surface
-version: 0.4.2
+version: 0.5.0
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking, drag-rank, drawing or annotation, structured forms, async approval gates, multi-recipient surfaces where several people respond to the same prompt, collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares where a surface is delivered to someone other than the operator, situations where the user isn't in chat and the outbound channel (email, SMS, push, paging) can only carry a URL, runbook delivery where the user works through a list of shell commands one at a time with per-step copy affordances and done buttons, information display where a rendered surface (tables, grouped lists, flagged rows, rich layout) is a better way to show the user information than a wall of chat text or a static document — even before considering input collection, information-dense surfaces where rich context (tables, grids, flagged data, clinical narratives, multi-paragraph summaries) needs to appear alongside multiple granularities of structured input on one page. The agent generates a task-shaped page of opaque-ID affordances, ships the URL through whatever channel reaches the recipients, and autonomously drains submissions to react. Not for simple in-chat questions, durable apps or persistent products, or interactions the agent can self-resolve.
 ---
 
@@ -72,7 +72,7 @@ Routes, state-file shape, submission semantics, and a session walkthrough are in
 
 Four shapes cover the space: Monitor on background-process stdout (preferred when the environment supports it with the canonical wire), ScheduleWakeup or `/loop` polling, OS-level filesystem watch, push webhook into the agent. Pick what fits the environment and the task's latency tolerance.
 
-Mechanism tradeoffs, a worked Monitor example, cadence guidance, and no-submission timeout/discard semantics (what the agent does when nothing arrives) are in `references/lifecycle.md`.
+Mechanism tradeoffs, a worked Monitor example, mint-vs-react agent lifetime (held-open sessions vs. detached fresh agents for long gaps), cadence guidance, and no-submission timeout/discard semantics (what the agent does when nothing arrives) are in `references/lifecycle.md`.
 
 ## 6. Working with the user
 
