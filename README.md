@@ -1,6 +1,6 @@
 # surface
 
-`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, two reference servers (Go, Python) for the local-loopback substrate, and a hosted-substrate wire walkthrough (`references/hosted-example.md`). No installable binary yet; additional clean-room references (Node, Rust, a Cloudflare Worker) are planned.
+`surface` is a pattern + skill that lets an agent generate ephemeral, structured UI surfaces to collect ad-hoc input from a user, and react to submissions autonomously. The surface is a URL pointing at agent-rendered HTML; the agent owns what each affordance means; submissions arrive in known shape. Surfaces are also a primary tool for *showing* users information — tables, grouped lists, flagged rows, and rich layout communicate at a glance what chat text or a static document cannot. v0 ships the skill bundle, four reference servers (Go, Python, Node, Rust) for the local-loopback substrate, and a hosted-substrate wire walkthrough (`references/hosted-example.md`). No installable binary yet; a clean-room Cloudflare Worker reference is still planned.
 
 ## Why surface (and why not a form)
 
@@ -100,9 +100,12 @@ Each harness loads `skills/surface/SKILL.md` and what it explicitly references; 
 | `skills/surface/examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `skills/surface/examples/server_test.go` | Tests for the Go reference. |
 | `skills/surface/examples/server.py` | Python stdlib reference, independently derived from the references (not Go-mirrored). Diverges from the Go sibling on operational details (port 8000, no parent-death watchdog, hard 32 MiB multipart cap) — same wire contract. |
+| `skills/surface/examples/server.mjs`, `server.test.mjs` | Node stdlib reference (`node:http`), independently derived from the references; `node:test` suite (21 cases). |
+| `skills/surface/examples/rust/` | Rust reference server (zero-dependency `std::net`), independently derived from the references. Cargo project — `cargo run` / `cargo test`. |
+| `skills/surface/examples/inline-reveal.py`, `inline-reveal.md` | Minimal worked example of SKILL.md §6 Rule 5 ("the surface owns the result"): the `/submit` response carries the payload and the page swaps it into an inline panel — no chat bounce. |
 | `skills/surface/examples/tic-tac-toe.html`, `tic-tac-toe.md` | Worked capability demo — a tldraw tic-tac-toe surface (the recipient plays, the agent drains moves and replies on the board), with the `.md` explaining how it maps onto the pattern. |
 
-The Python reference was built without its author reading the Go sibling — derived from `skills/surface/references/` alone. The operational divergences (different port, different watchdog choice, different error-status policy) are the validation: the pattern survives independent re-derivation. Additional clean-room references (Node, Rust, a hosted Cloudflare Worker) are planned the same way — each derived references-only, not ported — and aren't in the tree yet.
+The Python, Node, and Rust references were each built without their author reading the other siblings — derived from `skills/surface/references/` alone. The operational divergences (different ports, watchdog choices, error-status policies) are the validation: the pattern survives independent re-derivation. A clean-room hosted Cloudflare Worker reference is planned the same way — derived references-only, not ported — and isn't in the tree yet.
 
 **Packaging** (harness-specific plugin wrappers, not loaded as part of the skill):
 

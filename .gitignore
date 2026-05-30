@@ -32,6 +32,7 @@ __pycache__/
 .claude/settings.local.json
 .claude/scheduled_tasks*
 .claude/worktrees/
+.claude/orchestrate.lock
 docs/session-artifacts/
 .wrangler/
 
