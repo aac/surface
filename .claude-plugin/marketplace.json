@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "surface",
+  "owner": {
+    "name": "Andrew Cove"
+  },
+  "plugins": [
+    {
+      "name": "surface",
+      "source": "./",
+      "description": "Ad-hoc structured input from one or more recipients via a flexible, distributable interface. The agent generates an ephemeral, task-shaped UI surface of opaque-ID affordances, delivers the URL through any outbound channel, and autonomously drains submissions to react. Also strong for information-dense display. Not for durable apps or simple in-chat questions.",
+      "version": "0.8.0",
+      "author": {
+        "name": "Andrew Cove"
+      },
+      "homepage": "https://github.com/aac/surface",
+      "repository": "https://github.com/aac/surface",
+      "license": "Apache-2.0",
+      "keywords": ["agent", "ui", "ephemeral", "structured-input", "human-in-the-loop"],
+      "category": "agent-tools"
+    }
+  ]
+}

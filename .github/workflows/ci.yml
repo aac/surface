@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  markdown-lint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run markdownlint
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          config: .markdownlint.json
+          globs: |
+            **/*.md
+            !.act/**
+            !.git/**
+            !CLAUDE.md
+
+  manifest-validate:
+    name: Plugin manifest validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifests — required fields, JSON, lockstep version
+        run: |
+          set -euo pipefail
+
+          SKILL_VERSION=$(grep -m1 '^version:' skills/surface/SKILL.md | sed 's/version: *//')
+          echo "SKILL.md version:            $SKILL_VERSION"
+
+          # Validate .claude-plugin/plugin.json
+          echo ""
+          echo "=== .claude-plugin/plugin.json ==="
+          jq empty .claude-plugin/plugin.json
+          echo "  valid JSON: ok"
+
+          for field in name description version skills; do
+            val=$(jq -r --arg f "$field" '.[$f] // empty' .claude-plugin/plugin.json)
+            if [ -z "$val" ]; then
+              echo "  MISSING required field: $field" >&2
+              exit 1
+            fi
+            echo "  $field: $val"
+          done
+
+          CLAUDE_VERSION=$(jq -r '.version' .claude-plugin/plugin.json)
+
+          # Validate .codex-plugin/plugin.json (present in this repo)
+          echo ""
+          echo "=== .codex-plugin/plugin.json ==="
+          jq empty .codex-plugin/plugin.json
+          echo "  valid JSON: ok"
+
+          for field in name description version; do
+            val=$(jq -r --arg f "$field" '.[$f] // empty' .codex-plugin/plugin.json)
+            if [ -z "$val" ]; then
+              echo "  MISSING required field: $field" >&2
+              exit 1
+            fi
+            echo "  $field: $val"
+          done
+
+          CODEX_VERSION=$(jq -r '.version' .codex-plugin/plugin.json)
+
+          # Lockstep check: all three version strings must match
+          echo ""
+          echo "=== Lockstep version check ==="
+          echo "  SKILL.md:                   $SKILL_VERSION"
+          echo "  .claude-plugin/plugin.json: $CLAUDE_VERSION"
+          echo "  .codex-plugin/plugin.json:  $CODEX_VERSION"
+
+          FAIL=0
+          if [ "$SKILL_VERSION" != "$CLAUDE_VERSION" ]; then
+            echo "  MISMATCH: SKILL.md ($SKILL_VERSION) != .claude-plugin/plugin.json ($CLAUDE_VERSION)" >&2
+            FAIL=1
+          fi
+          if [ "$SKILL_VERSION" != "$CODEX_VERSION" ]; then
+            echo "  MISMATCH: SKILL.md ($SKILL_VERSION) != .codex-plugin/plugin.json ($CODEX_VERSION)" >&2
+            FAIL=1
+          fi
+          if [ "$FAIL" -eq 0 ]; then
+            echo "  all three version strings match: ok"
+          else
+            exit 1
+          fi
+
+      - name: CHANGELOG has an entry for the current version
+        run: |
+          set -euo pipefail
+          SKILL_VERSION=$(grep -m1 '^version:' skills/surface/SKILL.md | sed 's/version: *//')
+          # Escape dots so the version matches literally, not as a regex wildcard.
+          ESCAPED=${SKILL_VERSION//./\\.}
+          if grep -qE "^## \[${ESCAPED}\]" CHANGELOG.md; then
+            echo "CHANGELOG.md has an entry for ${SKILL_VERSION}: ok"
+          else
+            echo "MISSING: CHANGELOG.md has no '## [${SKILL_VERSION}]' section." >&2
+            echo "Any skill-content landing bumps the version AND adds a matching CHANGELOG entry — see the version-bump rule in AGENTS.md." >&2
+            exit 1
+          fi
+
+  go-tests:
+    name: Go reference server tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: skills/surface/go.mod
+      - name: go vet
+        working-directory: skills/surface
+        run: go vet ./...
+      - name: go test
+        working-directory: skills/surface
+        run: go test ./...

@@ -1,0 +1,46 @@
+# Rust build artifacts
+skills/surface/examples/rust/target/
+
+# Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Coverage
+coverage.*
+
+# Python build artifacts
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Playwright MCP verification artifacts (screenshots, console/snapshot dumps)
+.playwright-mcp/
+
+# act
+.act/index.db
+.ask/
+.act/
+.claude/settings.json
+.claude/settings.local.json
+.claude/scheduled_tasks*
+.claude/worktrees/
+.claude/orchestrate.lock
+docs/session-artifacts/
+.wrangler/
+
+# Operator/session artifacts (not part of the public tree)
+docs/session-handoff.md
+
+# Scope-review revised drafts pending review (operator-workflow artifact)
+*.revised.md
+
+# Operator design log — local-only for public v0 (scrub + reintroduce later)
+docs/decisions.md
