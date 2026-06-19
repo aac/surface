@@ -67,7 +67,7 @@ The plugin (Quick start above) is the easiest path. The full picture:
 
 - **Claude Code (CLI or Desktop):** `/plugin marketplace add aac/surface`, then `/plugin install surface@surface`. The skill auto-loads from `skills/surface/`.
 - **Cowork / Claude Desktop:** Customize → plugins → Add marketplace, and point it at `aac/surface`.
-- **Codex:** `codex plugin marketplace add aac/surface`, then `codex plugin install surface@surface` (or symlink the bundle: `ln -s "$PWD/skills/surface" ~/.codex/skills/surface`).
+- **Codex:** clone the repo and symlink the skill — `ln -s "$PWD/skills/surface" ~/.codex/skills/surface` — or point your agent at this repo and let it install. (A first-class Codex plugin-marketplace path is on the way once the CLI's plugin flow settles.)
 - **Or just point your agent at this repo** (`github.com/aac/surface`) and let it install whatever way fits — the skill bundle is harness-neutral under `skills/surface/`, and there's an `install.sh` that symlinks it for you.
 
 Each harness loads `skills/surface/SKILL.md` and the references and examples it points to.
