@@ -1,0 +1,25 @@
+{
+  "name": "surface",
+  "description": "Ephemeral, distributable UI surfaces an agent stands up itself: opaque-ID affordances, autonomous draining, reactions in code.",
+  "interface": {
+    "displayName": "Surface",
+    "developerName": "Andrew Cove",
+    "category": "Productivity"
+  },
+  "plugins": [
+    {
+      "name": "surface",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/aac/surface.git",
+        "ref": "main"
+      },
+      "description": "Ad-hoc structured input from one or more recipients via a flexible, distributable interface. The agent generates a task-shaped page of opaque-ID affordances, ships the URL through whatever channel reaches the recipients, and autonomously drains submissions to react. Also strong for information-dense display. Not for durable apps or simple in-chat questions.",
+      "category": "Productivity",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      }
+    }
+  ]
+}

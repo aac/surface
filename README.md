@@ -2,7 +2,7 @@
 
 Chat is a narrow channel: a column of text, with no real way to lay out a comparison, drag a list into order, mark up an image, or hand back a dense table you can act on row by row. `surface` is your agent's escape hatch — it builds a web page shaped to the task at hand, hands you a link, and reacts to whatever you do on it. The page can be as plain as a single approval button or as rich as a drag-to-rank board, an annotated floor plan, or a refereed two-player game; either way it's built for one task and thrown away when that task is done — no app to stand up, no form to maintain.
 
-![A tic-tac-toe board served as a surface — the player clicks to place X, the agent drains the move and plays O back onto the same board](docs/assets/tic-tac-toe-demo.gif)
+![A Claude Code terminal building a surface on the left, and the live tic-tac-toe page it serves on the right](docs/assets/hero.png)
 
 More precisely: `surface` is a **pattern + skill** for an agent to generate an ephemeral, structured UI at a URL, deliver that URL through any channel it has, and **drain submissions autonomously** — reacting on its own, without you coming back to chat to say "I clicked it." The agent decides what every control on the page means, so submissions arrive in a known shape. It's also a strong way to *show* you information — tables, grouped lists, flagged rows — that a wall of chat text can't.
 
@@ -24,6 +24,8 @@ play O back onto the same board, until someone wins.
 ```
 
 Soon you have a browser tab with a real board: your clicks land as X, and O appears a second or two later — played by your agent, drawn onto the *same* surface. (The first build takes a little longer — the agent is writing the server — but once it's up, your moves come back live.) That one prompt exercises the whole pattern.
+
+![The tic-tac-toe surface in motion — you place X, the agent drains the move and plays O back onto the same board](docs/assets/tic-tac-toe-demo.gif)
 
 **Prerequisites:** none beyond the skill. For a local browser demo the agent writes and runs whatever small server it needs — you don't pre-install Go, Node, or Python (the reference servers in this repo are there to *read*, not to install). The local demo runs on loopback and needs no setup. One caveat: the tic-tac-toe board pulls its drawing library (tldraw) from a CDN, so that browser tab needs internet.
 
@@ -65,7 +67,7 @@ The plugin (Quick start above) is the easiest path. The full picture:
 
 - **Claude Code (CLI or Desktop):** `/plugin marketplace add aac/surface`, then `/plugin install surface@surface`. The skill auto-loads from `skills/surface/`.
 - **Cowork / Claude Desktop:** Customize → plugins → Add marketplace, and point it at `aac/surface`.
-- **Codex:** the repo ships a `.codex-plugin/plugin.json` — install the plugin from this repo, or symlink the bundle: `ln -s "$PWD/skills/surface" ~/.codex/skills/surface`.
+- **Codex:** `codex plugin marketplace add aac/surface`, then `codex plugin install surface@surface` (or symlink the bundle: `ln -s "$PWD/skills/surface" ~/.codex/skills/surface`).
 - **Or just point your agent at this repo** (`github.com/aac/surface`) and let it install whatever way fits — the skill bundle is harness-neutral under `skills/surface/`, and there's an `install.sh` that symlinks it for you.
 
 Each harness loads `skills/surface/SKILL.md` and the references and examples it points to.
