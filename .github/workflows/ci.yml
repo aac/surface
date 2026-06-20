@@ -20,6 +20,15 @@ jobs:
             !.git/**
             !CLAUDE.md
 
+  lint-skill:
+    name: Lint skill description
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce Codex 1024-char description limit
+        run: python3 scripts/lint-skill.py
+
   manifest-validate:
     name: Plugin manifest validation
     runs-on: ubuntu-latest
