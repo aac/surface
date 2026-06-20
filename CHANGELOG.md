@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-19
+
+### Changed
+- Trimmed the SKILL.md frontmatter `description:` from 1518 to 997 characters to stay under Codex's hard 1024-char skill-description limit (the skill failed to load under Codex). Merged overlapping clauses and condensed the enumerated examples to representative coverage; all distinct activation triggers are preserved.
+
 ## [0.8.0] - 2026-06-18
 
 ### Added
