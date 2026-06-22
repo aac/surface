@@ -1,5 +1,7 @@
 # surface
 
+[![skills.sh](https://skills.sh/b/aac/surface)](https://skills.sh/aac/surface)
+
 Chat is a narrow channel: a column of text, with no real way to lay out a comparison, drag a list into order, mark up an image, or hand back a dense table you can act on row by row. `surface` is your agent's escape hatch — it builds a web page shaped to the task at hand, hands you a link, and reacts to whatever you do on it. The page can be as plain as a single approval button or as rich as a drag-to-rank board, an annotated floor plan, or a refereed two-player game; either way it's built for one task and thrown away when that task is done — no app to stand up, no form to maintain.
 
 ![A Claude Code terminal building a surface on the left, and the live tic-tac-toe page it serves on the right](docs/assets/hero.png)
