@@ -74,29 +74,12 @@ jobs:
             echo "  $field: $val"
           done
 
-          CODEX_VERSION=$(jq -r '.version' .codex-plugin/plugin.json)
-
-          # Lockstep check: all three version strings must match
+          # Lockstep check across all FOUR manifests (incl. marketplace.json,
+          # which the old inline three-way check missed). Single source of
+          # truth so CI and the pre-commit hook stay in agreement.
           echo ""
           echo "=== Lockstep version check ==="
-          echo "  SKILL.md:                   $SKILL_VERSION"
-          echo "  .claude-plugin/plugin.json: $CLAUDE_VERSION"
-          echo "  .codex-plugin/plugin.json:  $CODEX_VERSION"
-
-          FAIL=0
-          if [ "$SKILL_VERSION" != "$CLAUDE_VERSION" ]; then
-            echo "  MISMATCH: SKILL.md ($SKILL_VERSION) != .claude-plugin/plugin.json ($CLAUDE_VERSION)" >&2
-            FAIL=1
-          fi
-          if [ "$SKILL_VERSION" != "$CODEX_VERSION" ]; then
-            echo "  MISMATCH: SKILL.md ($SKILL_VERSION) != .codex-plugin/plugin.json ($CODEX_VERSION)" >&2
-            FAIL=1
-          fi
-          if [ "$FAIL" -eq 0 ]; then
-            echo "  all three version strings match: ok"
-          else
-            exit 1
-          fi
+          scripts/check-versions.sh
 
       - name: CHANGELOG has an entry for the current version
         run: |

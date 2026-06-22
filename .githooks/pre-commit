@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# pre-commit hook for the surface repo.
+#
+# Fast local backstop for the version-lockstep rule (see AGENTS.md "Versioning"):
+# blocks a commit if the version string disagrees across the four packaging
+# manifests. CI enforces the same check, but this catches drift before push.
+#
+# Only runs when a relevant manifest is staged, so unrelated commits aren't
+# slowed down. Install once, per checkout, with:
+#   git config --local core.hooksPath .githooks
+#
+# Escape hatch (use sparingly): SURFACE_SKIP_VERSION_CHECK=1 git commit ...
+set -uo pipefail
+
+if [ -n "${SURFACE_SKIP_VERSION_CHECK:-}" ]; then
+  exit 0
+fi
+
+staged="$(git diff --cached --name-only 2>/dev/null || true)"
+case "$staged" in
+  *SKILL.md*|*plugin.json*|*marketplace.json*) ;;
+  *) exit 0 ;;
+esac
+
+repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+if ! "$repo_root/scripts/check-versions.sh"; then
+  echo "[pre-commit] BLOCKED: version strings are not in lockstep." >&2
+  echo "  Bump them together with: scripts/bump-version.sh <version>" >&2
+  echo "  Bypass (rarely): SURFACE_SKIP_VERSION_CHECK=1 git commit ..." >&2
+  exit 1
+fi
