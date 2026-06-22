@@ -13,7 +13,7 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-skill=$(grep -m1 '^version:' skills/surface/SKILL.md | sed 's/version:[[:space:]]*//')
+skill=$(python3 scripts/skill-version.py)   # frontmatter metadata.version (spec-compliant location)
 claude_plugin=$(python3 -c 'import json;print(json.load(open(".claude-plugin/plugin.json"))["version"])')
 codex_plugin=$(python3 -c 'import json;print(json.load(open(".codex-plugin/plugin.json"))["version"])')
 marketplace=$(python3 -c 'import json;d=json.load(open(".claude-plugin/marketplace.json"));print(d["plugins"][0]["version"])')

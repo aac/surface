@@ -15,15 +15,18 @@ cd "$(git rev-parse --show-toplevel)"
 
 new="${1:?usage: scripts/bump-version.sh <new-version>}"
 
-# SKILL.md frontmatter: replace the single top-level `version:` line.
+# SKILL.md frontmatter: replace the `version:` value under the `metadata:` key.
+# Scoped to the frontmatter block so a `  version:` in the body can't match.
 python3 - "$new" <<'PY'
 import re, sys
 new = sys.argv[1]
 p = "skills/surface/SKILL.md"
 s = open(p).read()
-s, n = re.subn(r'(?m)^version:.*$', f'version: {new}', s, count=1)
-assert n == 1, f"expected exactly one 'version:' line in {p}, found {n}"
-open(p, "w").write(s)
+parts = s.split("---\n", 2)          # ["", frontmatter, body]
+assert len(parts) == 3, f"{p}: could not isolate frontmatter block"
+fm, n = re.subn(r'(?m)^(\s+)version:.*$', rf'\g<1>version: "{new}"', parts[1], count=1)
+assert n == 1, f"expected exactly one indented 'version:' under metadata in {p}, found {n}"
+open(p, "w").write(parts[0] + "---\n" + fm + "---\n" + parts[2])
 PY
 
 # JSON manifests: replace the version value in place, leaving all other

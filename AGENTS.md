@@ -19,7 +19,7 @@ These are the through-lines from the design conversation. They override surface-
 
 ## Versioning
 
-`skills/surface/SKILL.md` frontmatter carries a `version:` field. The packaging manifests carry the same `version` in **four** places total: `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and the per-plugin `version` in `.claude-plugin/marketplace.json`. The shared version string lets anyone eyeball-compare what's loaded in a harness (Cowork, Claude Desktop, Codex) against what's in this repo without diffing the full bytes.
+`skills/surface/SKILL.md` frontmatter carries the version under `metadata.version` (the spec-compliant location — a top-level `version:` key is rejected by the [Agent Skills spec](https://agentskills.io/specification) and by `scripts/lint-skill.py`). The packaging manifests carry the same `version` in **four** places total: SKILL.md's `metadata.version`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and the per-plugin `version` in `.claude-plugin/marketplace.json`. The shared version string lets anyone eyeball-compare what's loaded in a harness (Cowork, Claude Desktop, Codex) against what's in this repo without diffing the full bytes. `scripts/skill-version.py` is the single reader for the SKILL.md side (stdlib-only; CI has no YAML lib).
 
 **Rule:** any landing that changes skill content (`skills/surface/SKILL.md`, anything under `skills/surface/references/`, anything under `skills/surface/examples/`) bumps **all four** `version:` strings together **and adds a matching `## [<version>]` section to `CHANGELOG.md`**. Patch-bump for content tweaks, minor-bump for new rules / new references / new examples / shape changes. Keep them lockstep — if they ever drift, the comparison signal dies.
 

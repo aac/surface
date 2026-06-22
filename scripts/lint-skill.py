@@ -47,6 +47,15 @@ def main():
     for required in ("name", "description"):
         if not fields.get(required):
             fail(f"{path}: missing frontmatter key '{required}'")
+    # Agent Skills spec (agentskills.io): only these top-level frontmatter keys
+    # are allowed. This is the in-repo equivalent of `skills-ref validate` so CI
+    # doesn't depend on that external demo-only tool; `version` lives under
+    # `metadata`, not at the top level.
+    allowed = {"name", "description", "license", "compatibility", "metadata", "allowed-tools"}
+    unexpected = sorted(set(fields) - allowed)
+    if unexpected:
+        fail(f"{path}: unexpected frontmatter field(s) {unexpected}; spec allows "
+             f"only {sorted(allowed)} (put version under metadata)")
     n = len(fields["description"])
     if n > LIMIT:
         fail(f"{path}: description is {n} chars, exceeds Codex limit of {LIMIT}")

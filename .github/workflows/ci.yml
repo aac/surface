@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          SKILL_VERSION=$(grep -m1 '^version:' skills/surface/SKILL.md | sed 's/version: *//')
+          SKILL_VERSION=$(python3 scripts/skill-version.py)
           echo "SKILL.md version:            $SKILL_VERSION"
 
           # Validate .claude-plugin/plugin.json
@@ -84,7 +84,7 @@ jobs:
       - name: CHANGELOG has an entry for the current version
         run: |
           set -euo pipefail
-          SKILL_VERSION=$(grep -m1 '^version:' skills/surface/SKILL.md | sed 's/version: *//')
+          SKILL_VERSION=$(python3 scripts/skill-version.py)
           # Escape dots so the version matches literally, not as a regex wildcard.
           ESCAPED=${SKILL_VERSION//./\\.}
           if grep -qE "^## \[${ESCAPED}\]" CHANGELOG.md; then
