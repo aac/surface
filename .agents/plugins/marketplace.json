@@ -1,0 +1,20 @@
+{
+  "name": "surface",
+  "interface": {
+    "displayName": "surface"
+  },
+  "plugins": [
+    {
+      "name": "surface",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/aac/surface.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_FIRST_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
