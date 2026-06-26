@@ -35,11 +35,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Canonical version tooling lives in plugin-release-kit, not in this repo.
+      # Pinned to an IMMUTABLE commit SHA (never a moving branch/tag) — same
+      # supply-chain hygiene the kit's verify-release [7] enforces for the
+      # reusable release workflow.
+      - name: Check out plugin-release-kit (SHA-pinned)
+        uses: actions/checkout@v4
+        with:
+          repository: aac/plugin-release-kit
+          ref: d27feb43ee6f594b98cee5823bb149acde6422ee
+          path: .plugin-release-kit
+
       - name: Validate manifests — required fields, JSON, lockstep version
         run: |
           set -euo pipefail
 
-          SKILL_VERSION=$(python3 scripts/skill-version.py)
+          SKILL_VERSION=$(.plugin-release-kit/bin/skill-version --repo .)
           echo "SKILL.md version:            $SKILL_VERSION"
 
           # Validate .claude-plugin/plugin.json
@@ -74,17 +85,17 @@ jobs:
             echo "  $field: $val"
           done
 
-          # Lockstep check across all FOUR manifests (incl. marketplace.json,
-          # which the old inline three-way check missed). Single source of
-          # truth so CI and the pre-commit hook stay in agreement.
+          # Lockstep check via the kit's canonical check-versions — single
+          # source of truth so every repo (and the pre-commit hook) agree on
+          # the rule rather than carrying a drifting per-repo copy.
           echo ""
           echo "=== Lockstep version check ==="
-          scripts/check-versions.sh
+          .plugin-release-kit/bin/check-versions --repo .
 
       - name: CHANGELOG has an entry for the current version
         run: |
           set -euo pipefail
-          SKILL_VERSION=$(python3 scripts/skill-version.py)
+          SKILL_VERSION=$(.plugin-release-kit/bin/skill-version --repo .)
           # Escape dots so the version matches literally, not as a regex wildcard.
           ESCAPED=${SKILL_VERSION//./\\.}
           if grep -qE "^## \[${ESCAPED}\]" CHANGELOG.md; then

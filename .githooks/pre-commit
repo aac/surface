@@ -3,7 +3,15 @@
 #
 # Fast local backstop for the version-lockstep rule (see AGENTS.md "Versioning"):
 # blocks a commit if the version string disagrees across the four packaging
-# manifests. CI enforces the same check, but this catches drift before push.
+# manifests. CI enforces the same check (it checks out plugin-release-kit and
+# runs the same bin/check-versions), so CI is the hard gate; this just catches
+# drift before push.
+#
+# The version tooling is the kit's, not this repo's — a local hook can't reuse a
+# CI workflow, so it calls the kit's bin/check-versions directly. It looks for a
+# kit checkout at $PLUGIN_RELEASE_KIT, else at a sibling ../plugin-release-kit.
+# If neither exists the hook degrades gracefully (warns + passes) and leaves CI
+# as the enforcing gate — a contributor without a kit checkout is not blocked.
 #
 # Only runs when a relevant manifest is staged, so unrelated commits aren't
 # slowed down. Install once, per checkout, with:
@@ -23,9 +31,19 @@ case "$staged" in
 esac
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
-if ! "$repo_root/scripts/check-versions.sh"; then
+kit="${PLUGIN_RELEASE_KIT:-$repo_root/../plugin-release-kit}"
+check_versions="$kit/bin/check-versions"
+
+if [ ! -x "$check_versions" ]; then
+  echo "[pre-commit] note: plugin-release-kit not found at '$kit'; skipping the" >&2
+  echo "  local version-lockstep check. CI enforces it. Set PLUGIN_RELEASE_KIT" >&2
+  echo "  to a kit checkout to re-enable the local backstop." >&2
+  exit 0
+fi
+
+if ! "$check_versions" --repo "$repo_root"; then
   echo "[pre-commit] BLOCKED: version strings are not in lockstep." >&2
-  echo "  Bump them together with: scripts/bump-version.sh <version>" >&2
+  echo "  Bump them together with: $kit/bin/bump-version <version> --repo $repo_root" >&2
   echo "  Bypass (rarely): SURFACE_SKIP_VERSION_CHECK=1 git commit ..." >&2
   exit 1
 fi
