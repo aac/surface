@@ -90,7 +90,7 @@ write_file(state_path, {
 
 # 2. Spawn the reference server in the background.
 shell_id = Bash(
-    command          = "go run ~/Workspace/poke/skills/surface/examples/server.go "
+    command          = "go run skills/surface/examples/server.go "
                        "--state " + state_path + " --html " + html_path + " --port 5173",
     run_in_background = True
 )
@@ -147,7 +147,7 @@ write_file(state_path, { ... })
 
 # 2. Spawn the server in fs-drain mode. No stdout to monitor.
 spawn_detached(
-    "go run ~/Workspace/poke/skills/surface/examples/server.go "
+    "go run skills/surface/examples/server.go "
     "--state " + state_path + " --html " + html_path +
     " --port 5173 --drain-mode fs"
 )

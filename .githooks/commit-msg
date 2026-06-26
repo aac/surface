@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# commit-msg hook for the poke repo.
+# commit-msg hook for the surface repo.
 #
 # Blocks direct work commits to `main` from the main checkout. Agents
 # dispatched by the orchestrator are supposed to run in a worktree under
@@ -53,7 +53,7 @@ cat >&2 <<MSG
 If you are a sub-agent dispatched by the orchestrator, you are in the
 WRONG DIRECTORY. Each dispatched agent has its own worktree at:
 
-  /Users/andrewcove/Workspace/poke/.claude/worktrees/agent-<id>/
+  <repo-root>/.claude/worktrees/agent-<id>/
 
 Run 'pwd' to confirm where you are. If the path does not contain
 '.claude/worktrees/agent-', cd into your worktree and re-run the commit
