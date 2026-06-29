@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 - `claude plugin install` failed manifest validation on Claude Code (`skills: Invalid input`). Removed the `skills` array from `.claude-plugin/plugin.json` — Claude Code's manifest schema doesn't accept a `skills` array (pointing it at the directory instead of the `SKILL.md` file still fails the same way), and the skill is auto-discovered from `skills/surface/` regardless, matching the first-party-plugin convention. Also dropped the top-level `"$schema"` key from `.claude-plugin/marketplace.json`, which older Claude Code releases reject as an unrecognized key under `plugin validate`. Codex manifests (`.codex-plugin/plugin.json`, `.agents/plugins/marketplace.json`) are untouched, so Codex packaging is unaffected. ([#1](https://github.com/aac/surface/issues/1))
+- CI's manifest check listed `skills` as a **required** field on `.claude-plugin/plugin.json` — directly enforcing the key that breaks `plugin install`. Dropped `skills` from the required-field loop in `.github/workflows/ci.yml` so it matches the Codex check (which never required it) and reflects auto-discovery.
+- Added a top-level `description` to `.claude-plugin/marketplace.json`, clearing the only remaining `plugin validate` warning (now passes clean, no warnings).
 
 ### Changed
 - Moved the SKILL.md `version` from a top-level frontmatter key to `metadata.version`, the spec-compliant location (the [Agent Skills spec](https://agentskills.io/specification) allows only `name`/`description`/`license`/`compatibility`/`metadata`/`allowed-tools` at the top level). `skills-ref validate` now passes on the skill. Version value unchanged (still 0.8.1), so this is packaging hygiene, not a content change.

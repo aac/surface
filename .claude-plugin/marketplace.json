@@ -1,5 +1,6 @@
 {
   "name": "surface",
+  "description": "Marketplace for the surface plugin — ad-hoc structured input from recipients via ephemeral, distributable UI surfaces.",
   "owner": {
     "name": "Andrew Cove"
   },

@@ -59,7 +59,11 @@ jobs:
           jq empty .claude-plugin/plugin.json
           echo "  valid JSON: ok"
 
-          for field in name description version skills; do
+          # Note: `skills` is intentionally NOT required. Claude Code's
+          # manifest schema rejects a `skills` array (`skills: Invalid input`),
+          # so plugin install fails if it's present; the skill is auto-discovered
+          # from skills/<name>/. See issue #1.
+          for field in name description version; do
             val=$(jq -r --arg f "$field" '.[$f] // empty' .claude-plugin/plugin.json)
             if [ -z "$val" ]; then
               echo "  MISSING required field: $field" >&2
