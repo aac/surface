@@ -73,7 +73,7 @@ Routes, state-file shape, submission semantics, and a session walkthrough are in
 
 Four shapes cover the space: a push-stream on background-process stdout (preferred when the environment supports it with the canonical wire), scheduled wake-up polling, an OS-level filesystem watch, or a push webhook into the agent. Pick what fits the environment and the task's latency tolerance. (`references/lifecycle.md` maps each shape to the concrete primitives available in specific harnesses — e.g. `Monitor` and `ScheduleWakeup` in Claude Code, the long-running exec session in Codex.)
 
-Mechanism tradeoffs, a worked Monitor example, mint-vs-react agent lifetime (held-open sessions vs. detached fresh agents for long gaps), cadence guidance, and no-submission timeout/discard semantics (what the agent does when nothing arrives) are in `references/lifecycle.md`.
+Mechanism tradeoffs, a worked Monitor example, mint-vs-react agent lifetime (held-open sessions vs. detached fresh agents for long gaps vs. a daemonized server that reacts with no agent at all when the session ends before submission), cadence guidance, and no-submission timeout/discard semantics (what the agent does when nothing arrives) are in `references/lifecycle.md`.
 
 ## 6. Working with the user
 
