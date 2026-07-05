@@ -86,7 +86,7 @@ surface deliberately ships narrow and grows on real-use signal. Currently out of
 - **Substantive prompt-injection mitigation patterns.** `references/security.md` names the caution; deeper sanitization guidance accrues as real untrusted-input use does.
 - **Persistent surfaces, link expiration, one-time-use semantics.** Surfaces are ephemeral; agents handle lifetime in their own state if they need it.
 
-(Hosted deployment and a push/WebSocket transport were once on this list — both are now documented as reference substrates, in `references/hosted-example.md` and `references/websocket-example.md`. These ship as *contracts to build against*, not runnable servers: unlike the local wire's committed `examples/server.go`, the hosted and WebSocket substrates have no reference implementation in the tree — the agent builds one for its environment from the reference. See "What's in this repo" below.)
+(Hosted deployment and a push/WebSocket transport are valid substrates too — the pattern (`references/pattern.md`) and SKILL.md §8 describe them, and `references/security.md` covers hosted deployment posture and the provisioning gate. They ship as *contracts to build against*, not runnable servers: unlike the local wire's committed `examples/server.go`, the hosted and WebSocket substrates have no reference implementation in the tree — the agent builds one for its environment from the pattern.)
 
 ## Composes with
 
@@ -108,7 +108,6 @@ Neither is required; surface works standalone. The composition lives in the agen
 | `skills/surface/references/wire-example.md` | One concrete wire (HTTP + JSON over localhost). Illustrative, not normative. |
 | `skills/surface/references/lifecycle.md` | The mechanism space for autonomous draining (Monitor, polling, fs watch, push webhook). |
 | `skills/surface/references/security.md` | Trust boundary, deployment posture, free-field content as injection vector. CSRF + URL-unguessability notes for non-loopback deployments. |
-| `skills/surface/references/hosted-example.md` | Cloudflare Worker + KV wire walkthrough — sibling to `wire-example.md`, for the hosted substrate. |
 | `skills/surface/examples/server.go` | Go reference server implementing the wire example. Supports either stdout (`SUBMIT` lines) or filesystem-drop drain via `--drain-mode={stdout,fs}`. Read it for orientation, re-implement in whatever fits. |
 | `skills/surface/examples/server_test.go` | Tests for the Go reference. |
 | `skills/surface/examples/server.py` | Python stdlib reference, independently derived from the references (not Go-mirrored). Diverges from the Go sibling on operational details (port 8000, no parent-death watchdog, hard 32 MiB multipart cap) — same wire contract. |
