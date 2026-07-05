@@ -8,7 +8,7 @@ More precisely: `surface` is a **pattern + skill** for an agent to generate an e
 
 ## Quick start
 
-You don't run surface; you install the skill, then ask your agent. In **Claude Code** (CLI or Desktop):
+You don't run surface; you install the skill, then ask your agent. In **Claude Code**:
 
 ```text
 /plugin marketplace add aac/surface
@@ -63,14 +63,13 @@ The honest objection is "isn't this just a web form?" The answer is no, and the 
 
 ## Installing
 
-The plugin (Quick start above) is the easiest path. The full picture:
+Installing the plugin is the canonical path. surface ships only the skill (no binary, no MCP server), and it's built for **Claude Code** and **Codex**:
 
-- **Claude Code (CLI or Desktop):** `/plugin marketplace add aac/surface`, then `/plugin install surface@surface`. The skill auto-loads from `skills/surface/`.
-- **Cowork / Claude Desktop:** Customize → plugins → Add marketplace, and point it at `aac/surface`.
+- **Claude Code:** `/plugin marketplace add aac/surface`, then `/plugin install surface@surface`. The skill auto-loads from `skills/surface/`.
 - **Codex:** clone the repo and symlink the skill — `ln -s "$PWD/skills/surface" ~/.codex/skills/surface` — or point your agent at this repo and let it install. (A first-class Codex plugin-marketplace path is on the way once the CLI's plugin flow settles.)
-- **Or just point your agent at this repo** (`github.com/aac/surface`) and let it install whatever way fits — the skill bundle is harness-neutral under `skills/surface/`, and there's an `install.sh` that symlinks it for you.
+- **No plugin manager?** Point your agent at this repo (`github.com/aac/surface`) and let it install whatever way fits — the skill bundle is harness-neutral under `skills/surface/`, and there's an `install.sh` that symlinks it for you.
 
-Each harness loads `skills/surface/SKILL.md` and the references and examples it points to.
+Each harness loads `skills/surface/SKILL.md` and the references and examples it points to. Cowork, the Claude Desktop app, and claude.ai aren't supported hosts yet — that's a planned addition, not a requirement for anything above.
 
 ## Setup
 
@@ -123,7 +122,7 @@ The Python, Node, and Rust references were each built without their author readi
 
 | Path | Purpose |
 |---|---|
-| `.claude-plugin/plugin.json` | Claude plugin manifest. Makes the bundle installable as a Claude Desktop / Cowork plugin; skills under `skills/` are auto-discovered. |
+| `.claude-plugin/plugin.json` | Claude plugin manifest. Makes the bundle installable as a Claude Code plugin; skills under `skills/` are auto-discovered. |
 | `.codex-plugin/plugin.json` | Codex plugin manifest. Sibling to the Claude manifest with the same `skills/` pointer and lockstep `version`. Harness-neutral skill content stays under `skills/surface/`. |
 
 **For humans** (not loaded by the skill):
