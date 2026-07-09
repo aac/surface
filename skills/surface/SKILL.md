@@ -2,7 +2,7 @@
 name: surface
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking or drag-rank, drawing or annotation, forms, async approval gates, multi-recipient surfaces (several people answer one prompt), collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares to non-operators, the user not in chat with the channel (email, SMS, push, paging) carrying only a URL, runbook delivery (shell commands one at a time with copy and done buttons), and information display where a rendered surface (tables, grouped lists, flagged rows, info-dense pages mixing context with input) beats chat or a doc. The agent ships a page of opaque-ID affordances by URL through any channel reaching recipients, then drains submissions autonomously. Not for in-chat questions, durable apps, or self-resolvable interactions.
 metadata:
-  version: "0.9.0"
+  version: "0.9.1"
 ---
 
 # surface

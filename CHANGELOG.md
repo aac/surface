@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-09
+
+### Changed
+- `references/lifecycle.md`: sharpened the held-open drain guidance to warn bluntly about the finalize-stops-the-drain failure mode surfaced in the Codex launch-night dogfood (agent started the server, verified the wire, then ended the turn — treating "server still running" as "still draining"). The "Mint lifetime vs. react lifetime" hold-open paragraph now makes explicit that hold-open means the *turn* stays open, not merely the server: ending the turn halts the drain even though the background server keeps accepting submissions, which buffer unobserved in any environment that doesn't wake the agent on background stdout. Held-open draining therefore requires Monitor blocking the turn open or a tight within-session wake cadence; any reaction that must happen after the turn finalizes needs the detached regime instead. The Codex stdout-tail note in the mechanism space carries the same point at its point of use. Kept harness-neutral in spirit — the warning is the general failure mode, with Codex's no-wake-on-stdout behavior as the motivating instance.
+
 ## [0.9.0] - 2026-07-05
 
 ### Changed
