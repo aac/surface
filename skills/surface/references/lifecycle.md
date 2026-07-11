@@ -215,11 +215,13 @@ this; the loop below carries the wire-level contract inline.
 The agent owns the cursor (`since`) and the cadence:
 
 ```
-# 1. Provision the session via the worker's agent-only /_provision endpoint.
-#    Returns the session id, the public surface URL, and the CSRF token.
+# 1. Provision the session via the substrate's agent-only provisioning
+#    endpoint. The gate (here a token) and the exact path are substrate-defined;
+#    this illustrates one hosted realization that returns the session id, the
+#    public surface URL, and the CSRF token.
 resp = http_post(
     BASE + "/_provision",
-    headers = { "authorization": "Bearer " + PROVISION_TOKEN,
+    headers = { "authorization": PROVISION_AUTH,   # substrate-defined gate
                 "content-type":  "application/json" },
     body    = json_encode({
         "html":        agent_rendered_html,

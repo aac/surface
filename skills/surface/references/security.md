@@ -85,8 +85,6 @@ The setup workflow records: (1) what the provisioning gate is, (2) where the cre
 
 A Cloudflare Worker + KV deployment is one concrete realization: the provisioning gate is a Bearer token on `POST /_provision`, set via `wrangler secret put`. A Vercel Function + Postgres deployment might use a different mechanism (signed deployment URLs, environment-variable-based auth). A Fly app might use mTLS or IP allowlisting. The general rule — provisioning requires authentication, the setup records the gate — holds regardless of substrate.
 
-> **Open question (brief §J.3).** The correct agent-side provisioning path for hosted substrates needs further investigation. The token-gated endpoint was the designed happy path for the Cloudflare Worker illustration, but an observed workaround (direct KV writes bypassing the endpoint) raises questions: does the provisioning endpoint implement security-relevant state generation (CSRF tokens, provisioning auth) that direct writes would skip? If the token is hard to retrieve at execution time, is the right fix making it accessible through a documented retrieval path rather than bypassing the endpoint? This reference does not bless either path; the investigation is tracked separately.
-
 ## 7. Cross-tool replay and submission attribution
 
 **Replay.** Per-session ID scope limits replay: an old submission against a session that no longer exists is a 404. Hosted contexts where session IDs leak into logs, browser history, or screenshots need more — short-lived tokens, one-time-use submissions, expiry — but designing that is the agent's call in context.

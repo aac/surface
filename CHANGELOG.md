@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-07-11
+
+### Changed
+- `references/security.md`: deleted the stale "Open question (brief §J.3)" block — a one-off session note about a direct-KV-write workaround that read as environment-specific cruft in a shipped reference. No positive invariant replaces it; the general provisioning-gate rule above it ("provisioning requires an auth gate; the specific mechanism is substrate-dependent") already covers the point and stays.
+- `references/lifecycle.md`: de-vendored the `/_provision` poll-drain example. The provisioning step no longer reads as if the token-gated `POST /_provision` + `Bearer PROVISION_TOKEN` mechanism were normative — it now frames the endpoint path and auth gate as substrate-defined, illustrating one hosted realization, consistent with the 0.10.0 substrate-neutrality direction (shipped skill content teaches the pattern; vendor specifics live in the operator env file).
+
 ## [0.10.0] - 2026-07-10
 
 ### Changed
