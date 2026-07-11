@@ -44,3 +44,4 @@ docs/session-handoff.md
 
 # Operator design log — local-only for public v0 (scrub + reintroduce later)
 docs/decisions.md
+docs/deploy-environment-investigation.md
