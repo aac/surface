@@ -208,8 +208,8 @@ What this shape buys you and what it costs:
 
 When the substrate is remote (Cloudflare Worker + KV, a Vercel function over
 Postgres, anything where the agent can't tail a stdout stream), the natural
-drain is a pull on an endpoint the surface exposes. The hosted reference at
-`examples/worker/` ships `GET /<session_id>/poll?since=<unix-ms>` for exactly
+drain is a pull on an endpoint the surface exposes. A hosted substrate of this
+shape typically exposes `GET /<session_id>/poll?since=<unix-ms>` for exactly
 this; the loop below carries the wire-level contract inline.
 
 The agent owns the cursor (`since`) and the cadence:

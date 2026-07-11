@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-10
+
+### Changed
+- **SKILL.md §7 (Environment and setup): recall a standing hosted substrate instead of minting fresh infrastructure per surface.** Added a **Reusing a standing substrate** note: when the environment record names a standing hosted substrate, reuse it (provision a new surface into the existing deployment) rather than standing up new hosted infrastructure; minting fresh hosted infrastructure for a single surface is the signal the record wasn't consulted. Kept as a default with an escape hatch — bespoke infrastructure stays valid when the standing substrate genuinely doesn't fit, as a deliberate, visible choice, not the fallback for an empty record. Substrate-neutral by construction: no infra-vendor nouns; the concrete standing deployment lives only in the operator's `~/.surface/environment.md`. Motivated by the 2026-07-10 decision-surface incident where a blank "hosted substrates: none configured" record led an agent to derive a bespoke hosted deployment from scratch.
+- **SKILL.md §7 (Setup-time discovery): probe before recording "none".** The setup survey now discovers which substrates are *actually* available — local binds, tunnels, and any configured hosted substrates — and records each one's location/retrieval path; it must not write "none configured" for a substrate class without actually probing for it (an unprobed "none" is how a standing hosted deployment gets missed and a fresh one needlessly minted). The *how* of probing a given substrate stays agent-derived and lives in the environment file, not enumerated in the skill. Execution-time recall + preflight (verify recorded credential locations still resolve, flag drift) unchanged.
+- `references/lifecycle.md`: fixed the dangling `examples/worker/` reference in the poll-drain example. `examples/worker/` was never created (the ticket that would have added it is closed obsolete), so the hosted poll-drain contract is now described generically ("a hosted substrate of this shape typically exposes `GET /<session_id>/poll?since=<unix-ms>`") without pointing at a non-existent path.
+
 ## [0.9.1] - 2026-07-09
 
 ### Changed

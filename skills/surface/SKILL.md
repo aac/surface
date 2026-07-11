@@ -2,7 +2,7 @@
 name: surface
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking or drag-rank, drawing or annotation, forms, async approval gates, multi-recipient surfaces (several people answer one prompt), collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares to non-operators, the user not in chat with the channel (email, SMS, push, paging) carrying only a URL, runbook delivery (shell commands one at a time with copy and done buttons), and information display where a rendered surface (tables, grouped lists, flagged rows, info-dense pages mixing context with input) beats chat or a doc. The agent ships a page of opaque-ID affordances by URL through any channel reaching recipients, then drains submissions autonomously. Not for in-chat questions, durable apps, or self-resolvable interactions.
 metadata:
-  version: "0.9.1"
+  version: "0.10.0"
 ---
 
 # surface
@@ -105,9 +105,11 @@ Surface benefits from a setup-time discovery step that records what substrates a
 
 **The environment file.** `~/.surface/environment.md` is where setup state is recorded — available local substrates (loopback, tunnel CLIs), hosted substrates the contributor has configured, and the *locations* of any credentials needed for non-loopback deployments (not the credentials themselves). The file shape is the agent's to define for its environment — substrates available and where credentials live, not the credentials themselves.
 
-**Setup-time discovery.** During a setup conversation (or when the environment file is missing), the agent surveys available substrates, records what's found, and writes `~/.surface/environment.md`. This is a one-time (or infrequent) step, not a per-invocation step.
+**Setup-time discovery.** During a setup conversation (or when the environment file is missing), the agent surveys which substrates are actually available — local binds, tunnels, and any hosted substrates the contributor has configured — records what it finds together with the location or retrieval path for each, and writes `~/.surface/environment.md`. Probe before recording: don't write "none" for a substrate class without actually checking for it — an unprobed "none configured" is how a standing hosted deployment gets missed and a fresh one needlessly minted. *How* to probe a given substrate is the agent's to derive and belongs in the environment file itself, not enumerated here; the skill records that discovery happens, not the substrate-specific commands. This is a one-time (or infrequent) step, not a per-invocation step.
 
 **Execution-time recall.** On every subsequent invocation, the agent reads `~/.surface/environment.md` to know what substrates are available and where credentials live. No re-scanning of credential stores, no re-probing of installed CLIs. The documented happy path reads only from the environment file; bounded, named retrieval from recorded locations (e.g., reading a specific keychain entry named in the file) is fine. Open-ended credential-store scanning at execution time is not.
+
+**Reusing a standing substrate.** When the environment record names a standing hosted substrate, reuse it — provision a new surface into the existing deployment — rather than standing up new hosted infrastructure. Minting fresh hosted infrastructure for a single surface is a signal the record wasn't consulted. This is a default, not a mandate: bespoke infrastructure stays valid when the standing substrate genuinely doesn't fit, as a deliberate, visible choice — not the fallback for an empty record.
 
 **Preflight verification.** At session start, the agent reads the environment file and verifies that named credential locations are still reachable — the env var exists, the keychain entry resolves. If any location is stale (key rotation, machine migration, deleted entry), the agent surfaces the gap and offers to re-run the setup workflow for the affected locations.
 
