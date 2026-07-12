@@ -50,7 +50,7 @@ A handful of terms recur — here's the whole vocabulary:
 - **Substrate / the wire** — *how* the surface is served and submissions travel: a local HTTP server, a hosted Cloudflare Worker, a Slack message, raw sockets. The pattern is fixed; the substrate is a choice.
 - **The pattern** — five invariants every implementation preserves: mint opaque IDs, persist the ID→intent map, render the surface, drain autonomously, stay ephemeral. It's the contract; everything else is illustration. Full statement in `skills/surface/references/pattern.md`.
 
-## Why surface (and why not a form)
+## Why surface (and why not a form — or an Artifact, or a ChatGPT Site)
 
 Agents already have three ways to collect structured input, each with a gap: a **chat reply** (unstructured, and only if the user is in chat), an **inline chat-client widget** (structured, but trapped inside a supported chat surface), or a **purpose-built app or form** (full UI, but real build-and-maintain cost). surface fills the space between them — task-shaped UI the agent generates for the moment and discards.
 
@@ -61,12 +61,16 @@ The honest objection is "isn't this just a web form?" The answer is no, and the 
 - **Reactions are code, so monitoring is cheap.** The agent encodes the drain-and-react logic and lets it run; it only re-engages for submissions that genuinely need judgment. Watching a live surface is not an LLM-call-per-interaction tax — the mechanical reactions cost nothing once written.
 - **Ephemeral by default.** Today surface aims at the moment, not forever: it fills the gap *below* the threshold where standing up and maintaining a durable tool makes sense, and for durable, recurring needs a real app or form tool is still the right call.
 
+The newer version of that objection is "isn't this just Claude's Artifacts, or a ChatGPT Site?" Same answer, different angle:
+
+- **The agent comes to you; you don't go build it.** Artifacts and ChatGPT Sites share a shape: *you* ask for a page, *you* review the preview, *you* publish or send it — and what you get is a durable thing you manage and eventually take down. surface inverts the direction. The agent mints a surface and sends it to you (or your team) *the moment it needs a decision* — walk away and a background agent still reaches you mid-task — then drains your answer and acts on it, with no trip back to chat. The response returns to the *agent*, not to a dashboard you have to remember to check. And it sits *below* the durable-site threshold on purpose: a published Site is something you keep and maintain; a surface is a single question the agent opens and throws away.
+
 ## Installing
 
 Installing the plugin is the canonical path. surface ships only the skill (no binary, no MCP server), and it's built for **Claude Code** and **Codex**:
 
 - **Claude Code:** `/plugin marketplace add aac/surface`, then `/plugin install surface@surface`. The skill auto-loads from `skills/surface/`.
-- **Codex:** clone the repo and symlink the skill — `ln -s "$PWD/skills/surface" ~/.codex/skills/surface` — or point your agent at this repo and let it install. (A first-class Codex plugin-marketplace path is on the way once the CLI's plugin flow settles.)
+- **Codex:** `codex plugin marketplace add aac/surface`, then `codex plugin add surface@surface` (verified on codex-cli 0.142.5). Or clone and symlink the skill directly — `ln -s "$PWD/skills/surface" ~/.codex/skills/surface`.
 - **No plugin manager?** Point your agent at this repo (`github.com/aac/surface`) and let it install whatever way fits — the skill bundle is harness-neutral under `skills/surface/`, and there's an `install.sh` that symlinks it for you.
 
 Each harness loads `skills/surface/SKILL.md` and the references and examples it points to. Cowork, the Claude Desktop app, and claude.ai aren't supported hosts yet — that's a planned addition, not a requirement for anything above.
