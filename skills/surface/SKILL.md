@@ -2,7 +2,7 @@
 name: surface
 description: Use when an agent needs ad-hoc structured input from one or more recipients via a flexible, distributable interface — multi-choice decisions too big for chat, file or photo uploads, visual disambiguation, comparative ranking or drag-rank, drawing or annotation, forms, async approval gates, multi-recipient surfaces (several people answer one prompt), collaboration surfaces where trusted recipients submit instructions the agent acts on, third-party shares to non-operators, the user not in chat with the channel (email, SMS, push, paging) carrying only a URL, runbook delivery (shell commands one at a time with copy and done buttons), and information display where a rendered surface (tables, grouped lists, flagged rows, info-dense pages mixing context with input) beats chat or a doc. The agent ships a page of opaque-ID affordances by URL through any channel reaching recipients, then drains submissions autonomously. Not for in-chat questions, durable apps, or self-resolvable interactions.
 metadata:
-  version: "0.11.0"
+  version: "0.12.0"
 ---
 
 # surface
@@ -121,7 +121,7 @@ Surface benefits from a setup-time discovery step that records what substrates a
 
 For sessions that span multiple rounds — initial collection, agent-side synthesis, a voting surface, and an optional tiebreaker — see `references/multi-round.md`.
 
-A persistent-connection transport (e.g. a WebSocket) is an equally valid substrate: submissions stream to the agent over one connection with no poll loop or stdout Monitor, and the agent can push state updates back over the same socket. It fits when the task involves multiple rounds of agent response or the surface must reflect agent-computed results without a page reload. Like the Go server, it's illustrative — the pattern (§3) is the contract, not any one transport.
+A persistent-connection transport (e.g. a WebSocket) is an equally valid substrate: submissions stream to the agent over one connection with no poll loop or stdout Monitor, and the agent can push state updates back over the same socket. It fits when the task involves multiple rounds of agent response or the surface must reflect agent-computed results without a page reload. Like the Go server, it's illustrative — the pattern (§3) is the contract, not any one transport. Choose the transport by the inbound shape: discrete inbound (clicks, form posts) → plain POST, adding a one-way SSE stream if the page must reflect agent-computed results live (`references/sse-example.md`); streaming or bidirectional inbound (live cursors, continuous input) → a WebSocket. Both are illustrative substrates, not the contract.
 
 **The substrate-agnostic test.** If you're porting surface to another substrate, the question is "can I build a working surface server from the docs in §3–§5 and `references/`?" — not "does my impl match the Go (or Python, or Node) reference byte-for-byte?" Operational details (port, watchdog, error statuses, body-cap policy, Cache-Control specifics) should be chosen on what's idiomatic for the target substrate. Cross-impl divergence on those details is signal that the pattern is being independently derived from the docs; cross-impl convergence on the wire envelope (state schema, SUBMIT line shape, multipart field name, timestamp format) is signal that the docs nailed down the right things. Both are validation. The wrong test is comparing impl-to-impl as a conformance bar.
 
