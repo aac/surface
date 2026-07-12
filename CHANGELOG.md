@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-11
+
+### Added
+- **`references/sse-example.md`: a compact POST+SSE return-path illustration**, peer to the WebSocket note in SKILL.md §8. Covers the common asymmetric shape — discrete inbound (clicks, form posts) + live outbound push — that WebSocket over-serves: `EventSource('/events')` + a `text/event-stream` response the server holds open, with inbound staying ordinary POST and the whole existing wire envelope unchanged. Kept deliberately short (frame count, retry/heartbeat interval, and drain mechanism all left implementation-defined) per the brevity constraint.
+
+### Changed
+- **SKILL.md §8: added an inbound-shape transport decision rule** to the persistent-connection paragraph. A clean-room agent building a live config→result tool chose WebSocket only because it was the sole documented push mechanism — steering agents to the heavier tool for the common discrete-inbound case. The rule now keys transport on inbound shape: discrete inbound → plain POST (+ a one-way SSE stream for live agent-computed results); streaming/bidirectional inbound → WebSocket. Both framed as illustrative substrates, not the contract. Approved by Andrew 2026-07-11 with an explicit "limit bloat" constraint (ask-3eab / act-787c42).
+
+## [0.11.0] - 2026-07-11
+
+### Changed
+- **SKILL.md §6 (Rule 6, "The surface explains itself"): added a phone-first reachability corollary.** Rule 6 already covered a surface's *framing* (what / to-do / why); it did not cover the *reachability of supporting material a surface references*. A surface could satisfy Rule 6 completely and still fail: if a decision depends on a design doc, a proposal, or a prior artifact, that material must be reachable from the surface itself on the least-capable channel it will be read on (assume a phone) — inline it, host a copy alongside the surface, or render a summary into the page; never leave a decision hanging on a laptop-local path or a preview-dependent link the recipient may not be able to open. When a reference genuinely can't be made reachable, the decision degrades gracefully (a "can't evaluate this from here" path) rather than silently blocking the whole submission. Motivated by the 2026-07-10 decision-surface dogfood where a phone recipient completed only 5 of 7 decisions because the referenced design doc's link preview didn't render and the compound proposals lived as laptop-local repo files. A genuine extension of Rule 6, not already implied by it, driven by measured pain — clears the over-specification bar (constrains a real failure, not agent taste). Approved by Andrew 2026-07-11 (ask-fb2f / act-7224ea).
+
 ## [0.10.1] - 2026-07-11
 
 ### Changed
