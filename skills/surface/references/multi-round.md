@@ -1,16 +1,14 @@
 # Multi-round collaborative surface
 
-This document walks through a class of surface session that spans more than one
-round: multiple recipients each fill out an initial surface independently, the
-agent synthesizes their submissions into a new surface, and one or more follow-up
-rounds refine or resolve the output. The pattern in `pattern.md` applies
-throughout — every round is a normal surface, the agent owns the intent map,
-submissions are drained autonomously. What changes is that submission from one
-round generates the surface for the next.
+This walks through a surface session spanning more than one round: recipients
+fill out an initial surface independently, the agent synthesizes their
+submissions into a new surface, and follow-up rounds refine or resolve the
+output. The pattern in `pattern.md` applies throughout — every round is a normal
+surface, the agent owns the intent map, submissions drain autonomously. What
+changes is that one round's submissions generate the next round's surface.
 
 This is **illustrative, not normative**. Substrate, state shape, delivery
-channel, and inter-round cadence are all agent choices. The pattern doesn't
-prescribe them.
+channel, and inter-round cadence are all agent choices.
 
 ## Common moves
 
