@@ -1,6 +1,6 @@
 # The surface pattern
 
-`surface` is a way for an agent to collect ad-hoc input from one or more recipients via a flexible, easily distributable interface. The agent generates a UI surface for the moment, ships its address to recipients through whatever channels it has, and reacts to submissions on its own. This file defines the pattern — what any implementation must preserve. Wire formats, server choices, and lifecycle mechanisms are illustration; this is the contract.
+This file defines the pattern — what any implementation of `surface` must preserve. Wire formats, server choices, and lifecycle mechanisms are illustration; this is the contract.
 
 ## The five invariants
 
@@ -68,9 +68,7 @@ For the full threat model, trust-boundary walkthrough, and calibration examples,
 
 ## Multi-affordance-per-item surfaces
 
-A common shape: the caller has a list of items (clips to triage, PRs to review, photos to label, budget lines to approve), and each item needs two or more affordances (approve/reject, label choices, priority flags).
-
-The intent field already handles this. There is no new pattern concept; this is callers using the existing one.
+A common shape: the caller has a list of items (clips to triage, PRs to review, photos to label), and each item needs two or more affordances (approve/reject, label choices, priority flags). The intent field already handles this — no new pattern concept.
 
 **How to set it up.** When minting affordances, embed the item reference in each affordance's intent alongside the action:
 
@@ -90,9 +88,7 @@ by_item = groupBy(submissions, fn(s) → s.intent.item_id)
 # → {"clip_42": [approve_submission], "clip_17": [reject_submission], ...}
 ```
 
-The caller then processes each item's submissions in whatever order makes sense.
-
-**The point.** No wire change. No new first-class concept. The intent field carries the grouping key because the caller put it there. Invariant 1 (the agent owns the intent map) is doing the work.
+The caller then processes each item's submissions in whatever order makes sense. No wire change, no new first-class concept: the intent field carries the grouping key because the caller put it there. Invariant 1 does the work.
 
 ## Beyond the pattern (agent responsibilities)
 

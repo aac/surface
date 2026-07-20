@@ -2,15 +2,12 @@
 
 This is **one concrete wire** for `surface`: an HTTP server bound to loopback, JSON
 on the submission path, multipart for file uploads, and a single-line stdout
-event for each submission. It is **illustrative, not normative**. Other wires
-(Slack interactive messages, Telegram inline keyboards, Cloudflare Worker + KV,
-raw sockets, anything else with a "render surface / collect submissions" shape)
-are equally valid as long as the pattern in `pattern.md` is preserved.
-Conformance is to the pattern, not to this wire.
+event for each submission. It is **illustrative, not normative** — any other wire
+with a "render surface / collect submissions" shape is equally valid as long as
+the pattern in `pattern.md` is preserved. Conformance is to the pattern, not this wire.
 
 The reference server at `examples/server.go` implements exactly this wire in
-the Go standard library, no external dependencies. Read it for orientation;
-reimplement in whatever substrate fits your environment.
+the Go standard library, no external dependencies.
 
 ## Routes
 
@@ -122,42 +119,30 @@ constraint is named here to make it explicit for implementers.
 
 4. Responds `200 OK`. The reference server sends an empty body, but the
    body is **not required to be empty** — it is the natural channel for the
-   *surface-owns-the-result* path (SKILL.md §6 Rule 5). A server may return a
-   JSON payload that the page swaps inline on submit, so the recipient-facing
-   result renders on the surface itself instead of bouncing to chat. This is
-   orthogonal to the drain path: the agent's drain loop reacts to the stdout
-   `SUBMIT` line, not to the HTTP response, so the body may be empty or
-   payload-bearing without changing how the agent learns about the submission.
-   (Reveals that depend on agent *reaction* — content computed after the
-   drain — arrive through a separate update channel, not this synchronous
-   response; see `lifecycle.md`.) Errors return a terse `4xx` with a short
-   text message.
+   *surface-owns-the-result* path (SKILL.md §6 Rule 5): a server may return a
+   JSON payload the page swaps inline on submit, so the result renders on the
+   surface instead of bouncing to chat. Orthogonal to the drain path — the drain
+   loop reacts to the stdout `SUBMIT` line, not the HTTP response, so the body
+   may be empty or payload-bearing regardless. (Reveals that depend on agent
+   *reaction* arrive through a separate update channel; see `lifecycle.md`.)
+   Errors return a terse `4xx`.
 
 HTML that submits to `/submit` should gate its success UI on `response.ok` —
-a `fetch()` promise resolves on *any* HTTP status (200, 400, 404, 500), so a
-4xx returned by the server will still flow into the success branch unless
-the page explicitly checks. A page that does `await fetch(...); show('sent')`
-reports success even when the server rejected the submission — and on a
-hosted substrate the rejection modes are richer (CSRF-token failure, a wrong
-or expired session URL), where a "sent" message that diverges from reality
-means the agent never sees the submission at all. The local wire is permissive
-(only `400` on malformed JSON), so this matters less here than in a hosted
-substrate, but the principle applies everywhere: the page's "sent" state must
-reflect the server's actual response — `if (!r.ok) { …show error…; return; }`
-before marking success.
+a `fetch()` promise resolves on *any* HTTP status, so a 4xx will flow into the
+success branch unless the page explicitly checks. `await fetch(...); show('sent')`
+reports success even when the server rejected the submission; on a hosted
+substrate the rejection modes are richer (CSRF-token failure, expired session
+URL) and a false "sent" means the agent never sees the submission. Check
+`if (!r.ok) { …show error…; return; }` before marking success.
 
 ### `multipart/form-data` — file uploads
 
 **Body-size handling.** Memory protection on multipart uploads is
-operational — same class of decision as state file lifecycle, port choice,
-and server teardown (see `pattern.md` §"Beyond the pattern"). Whether to
-hard-cap total body size, spill to disk above some in-memory ceiling, or
-do something else is the implementer's call. For orientation: the Node
-reference hard-caps at 32 MiB and returns `413 Payload Too Large` on
-over-cap; the Go reference uses 32 MiB as the in-memory ceiling before
-spilling to disk (no hard total cap); the Rust reference hard-caps at
-32 MiB and returns `413`. All valid shapes. Ephemeral surfaces
-rarely need more than tens of MiB; pick what fits the deployment.
+operational (see `pattern.md` §"Beyond the pattern"). Hard-cap total body
+size, spill to disk above an in-memory ceiling, or something else — the
+implementer's call. For orientation the Node and Rust references hard-cap at
+32 MiB and return `413 Payload Too Large`; the Go reference uses 32 MiB as
+the in-memory ceiling before spilling to disk (no hard cap). All valid.
 
 Body carries:
 
@@ -170,15 +155,11 @@ The server:
 
 1. Parses the multipart body.
 2. For each uploaded file, writes it to a path the server chooses and collects
-   the absolute path. **Storage path shape is implementer's call** — same
-   class of decision as state file lifecycle (see `pattern.md` §"Beyond the
-   pattern"). Any location the agent can read back by absolute path works.
-   For orientation, the Go and Node references converge on
-   `<tmpdir>/surface-uploads/<random-hex>-<sanitized-basename>` (random prefix
-   to avoid collisions, shared `surface-uploads` subdirectory under
-   `os.TempDir()` / `os.tmpdir()`); the Rust reference uses a per-process
-   subdirectory variant. Either shape — or any other the agent prefers — is
-   fine; this is not normative.
+   the absolute path. **Storage path shape is implementer's call.** Any location
+   the agent can read back by absolute path works. For orientation, the Go and
+   Node references converge on
+   `<tmpdir>/surface-uploads/<random-hex>-<sanitized-basename>`; the Rust
+   reference uses a per-process subdirectory variant. Not normative.
 3. Constructs the payload:
 
 ```json
@@ -313,21 +294,14 @@ state file.
 
 ## Lifecycle of the reference server
 
-A practical note when spawning the reference server via `go run`: the PID the
-shell sees is the `go run` wrapper, not the compiled child binary. Killing the
-wrapper does not always reap the child, which can leave the server holding the
-port between sessions. Two ways to avoid this:
-
-- Build first, then run, so the agent owns the real PID:
-  `go build -o /tmp/surface-serve ./examples/ && /tmp/surface-serve --state … --html … --port …`.
-- Or tear down by port rather than PID:
-  `lsof -t -i :<port> | xargs kill`.
-
-As a belt-and-suspenders measure, the reference server installs a
-parent-death watchdog: if its original parent process exits (the kernel
-reparents it to PID 1), it shuts itself down. This catches the common
-`go run` orphan case automatically; agents implementing alternative wires
-should consider equivalent self-teardown if their substrate has the same
+When spawning via `go run`, the PID the shell sees is the `go run` wrapper, not
+the compiled child; killing the wrapper doesn't always reap the child, leaving
+the server holding the port. Avoid it by building first so the agent owns the
+real PID (`go build -o /tmp/surface-serve ./examples/ && /tmp/surface-serve …`),
+or tearing down by port (`lsof -t -i :<port> | xargs kill`). As a backstop, the
+reference server installs a parent-death watchdog: if its original parent exits
+(reparented to PID 1), it shuts itself down. Agents implementing alternative
+wires should consider equivalent self-teardown if their substrate has the same
 hazard.
 
 ## Beyond the wire
