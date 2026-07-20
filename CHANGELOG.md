@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-07-19
+
+### Changed
+- **Skill reduction (−35% always-on body).** `SKILL.md` cut from 3,411 to 2,220 words, with references trimmed on their own merits — no behavior change intended or observed. The reduction was produced by an independent blind reducer and certified against released v0.12.0 by a frozen eval (25 candidate runs across 5 evals; every assertion matched the source baseline, judged by the deterministic surface checker plus a working deliberately-broken control proving the eval can fail). Every affordance contract, wire shape, and command is preserved verbatim. Dogfooded live since 2026-07-16 with no regressions.
+
 ## [0.12.0] - 2026-07-11
 
 ### Added
